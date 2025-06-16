@@ -25,19 +25,18 @@ class Memory:
         self,
         namespace: str = "default_memory",
         table_name: str = "memory",
-        schema: Optional[Dict[str, SchemaType]] = None,
+        metadata: Optional[Dict[str, SchemaType]] = None,
         if_exists: Literal["error", "ignore", "replace_force"] = "error",
     ):
         self.namespace = namespace
         self.table_name = table_name
-        self.schema = schema
+        self.metadata = metadata
         self.if_exists = if_exists
 
         default_schema = {
             "memory_id": pxt.Required[pxt.String],
             "insert_at": pxt.Required[pxt.Timestamp],
             "content": pxt.Required[pxt.String],
-            "metadata": pxt.Json,
         }
 
         pxt.create_dir(self.namespace, if_exists=self.if_exists)
@@ -49,8 +48,8 @@ class Memory:
             if_exists=self.if_exists,
         )
 
-        if self.schema:
-            t.add_columns(self.schema, if_exists=self.if_exists)
+        if self.metadata:
+            t.add_columns(self.metadata, if_exists=self.if_exists)
 
         self.table = t
 

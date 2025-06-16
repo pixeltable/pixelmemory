@@ -1,7 +1,7 @@
 import pixeltable as pxt
 from pixelmemory import Memory
 
-schema = {
+metadata_schema = {
     'case_id': pxt.Int,
     'status': pxt.String,
 }
@@ -9,7 +9,7 @@ schema = {
 memory = Memory(
     namespace='customer_service',
     table_name='customer_support_agent',
-    schema=schema,
+    metadata=metadata_schema,
     if_exists='replace_force',
 )
 
@@ -21,5 +21,3 @@ memory_id = memory.add_entry(
         'status': 'Open',
     },
 )
-
-print(memory.table.select().collect())

@@ -2,7 +2,7 @@ import pixeltable as pxt
 from pixelmemory import Memory
 import datetime
 
-custom_schema = {
+metadata_schema = {
     'case_id': pxt.Int,
     'customer_name': pxt.String,
     'product': pxt.String,
@@ -17,7 +17,7 @@ custom_schema = {
 memory = Memory(
     namespace='customer_service',
     table_name='customer_support_agent',
-    schema=custom_schema,
+    metadata=metadata_schema,
     if_exists='replace_force',
 )
 
