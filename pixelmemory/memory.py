@@ -25,8 +25,8 @@ class Memory:
         table_name: str = 'memory',
         schema: Optional[Dict[str, SchemaType]] = None,
         if_exists: Literal[
-            'error', 'ignore', 'replace', 'replace_force'
-        ] = 'error',
+            'error', 'ignore', 'replace_force'
+        ] = 'error'
     ):
         self.namespace = namespace
         self.table_name = table_name
@@ -48,6 +48,7 @@ class Memory:
         t = pxt.create_table(
             f'{self.namespace}.{self.table_name}',
             schema=default_schema,
+            primary_key='memory_id',
             if_exists=self.if_exists,
         )
 
