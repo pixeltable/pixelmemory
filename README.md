@@ -33,59 +33,6 @@ pip install pixelmemory
 ## Quick Start
 
 ```python
-from pixelmemory import Memory
-import datetime # For timestamp examples
-
-# Initialize the Memory system
-memory_store = Memory()
-```
-
-## Class Definition
-```python
-from typing import List, Dict, Any, Optional, Union # Added for clarity
-import datetime
-
-class Memory:
-    def __init__(
-        self, 
-        name: str = "default_memory", 
-        schema: Optional[Dict] = None,
-        embedding_config: Optional[Union[str, Dict]] = "intfloat/e5-large-v2"
-    ):
-        """
-        Initializes the Memory system.
-
-        Args:
-            name: The name of the memory store.
-            schema: Optional schema for the memory store.
-            embedding_config: Configuration for the embedding model.
-                Can be a string (e.g., a Hugging Face model ID for sentence-transformers)
-                or a dictionary for more detailed Pixeltable embedding function setup.
-                Defaults to "intfloat/e5-large-v2".
-        """
-        # ... implementation details ...
-        pass
-
-    # --------------------
-    # Adding Memories
-    # --------------------
-    def add_entry(self, content: str, namespace: str = "default_namespace", metadata: Optional[Dict[str, Any]] = None) -> str:
-        """
-        Adds a single piece of text content as a memory entry.
-        The 'content' is embedded for semantic search.
-        A unique memory_id is generated and returned.
-
-        Args:
-            content: The text content to be stored and embedded.
-            namespace: Identifier to partition memory spaces (e.g., per user, agent, project).
-            metadata: Optional dictionary for storing additional structured data.
-
-        Returns:
-            The unique memory_id (str) for the newly added entry.
-        """
-        # ... implementation details ...
-        pass
-
     def add_entries(self, entries: List[Dict[str, Any]], namespace: str = "default_namespace") -> List[str]:
         """
         Adds multiple memory entries in a batch.
@@ -209,24 +156,6 @@ class Memory:
             The number of memories successfully deleted.
         """
         # ... implementation details ...
-        pass
-
-    # --------------------
-    # Advanced Access
-    # --------------------
-    def get_namespace_table(self, namespace: str): # -> pxt.Table (actual type from Pixeltable)
-        """
-        Provides direct access to the underlying Pixeltable table for a given namespace.
-        This is an "escape hatch" for advanced users who want to perform
-        custom queries or leverage Pixeltable-specific features.
-
-        Args:
-            namespace: The identifier for the namespace whose table is to be accessed.
-
-        Returns:
-            The pixeltable.Table object for the namespace's memory data.
-        """
-        # ... implementation details that return the Pixeltable Table object ...
         pass
 ```
 ## Usage Examples (Pixelmemory API)
