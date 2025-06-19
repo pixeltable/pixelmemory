@@ -1,6 +1,6 @@
 <div align="center">
-<img src="https://raw.githubusercontent.com/pixeltable/pixeltable/main/docs/resources/pixeltable-logo-large.png"
-     alt="Pixelmemory Logo" width="50%" />
+<img src="pixelmemory.png"
+     alt="Pixelmemory Logo" width="70%" />
 <br></br>
 
 <h2>Open Source Multimodal Memory Layer for LLMs & Agents</h2>
@@ -12,10 +12,6 @@
 [![PyPI Package](https://img.shields.io/pypi/v/pixelmemory?color=4D148C)](https://pypi.org/project/pixelmemory/)
 [![My Discord (1306431018890166272)](https://img.shields.io/badge/💬-Discord-%235865F2.svg)](https://discord.gg/QPyqFYx2UN)
 
-[**Installation**](#-installation) |
-[**Quick Start**](#-usage-example) |
-[**Examples**](#examples) |
-[**Discord Community**](https://discord.gg/QPyqFYx2UN)
 
 </div>
 
@@ -30,7 +26,7 @@ Most AI applications today are essentially goldfish—they forget everything the
 *   RAG systems can't handle complex multimodal data or maintain conversation history.
 *   Expensive cloud memory solutions lock in your data with per-query fees and usage limits.
 *   Complex infrastructure required to store, index, and retrieve memories across text, images, videos, and documents.
-*   No semantic search capabilities for finding conceptually related memories.
+*   Limited semantic search capabilities for finding conceptually related memories.
 
 This memory amnesia makes AI applications feel disconnected and limits their ability to build meaningful, persistent relationships with users.
 
