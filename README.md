@@ -1,76 +1,337 @@
-# Pixelmemory: Your Local-First AI Memory Layer
+<div align="center">
+<img src="https://raw.githubusercontent.com/pixeltable/pixeltable/main/docs/resources/pixeltable-logo-large.png"
+     alt="Pixelmemory Logo" width="50%" />
+<br></br>
 
-**Simple, powerful, and local-first memory for your LLM agents, powered by Pixeltable.**
+<h2>Open Source Multimodal Memory Layer for LLMs & Agents</h2>
 
-Pixelmemory provides a Pythonic and intuitive way to add long-term memory capabilities to your Large Language Model (LLM) applications and agents. It's designed for developers who prioritize data ownership, control, and the flexibility to leverage the full power of their underlying data store. By building on [Pixeltable](https://pixeltable.readme.io/), Pixelmemory offers robust storage and efficient querying, all within your local environment.
+[![License](https://img.shields.io/badge/License-Apache%202.0-0530AD.svg)](https://opensource.org/licenses/Apache-2.0)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pixelmemory?logo=python&logoColor=white&)
+![Platform Support](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-E5DDD4)
+<br>
+[![PyPI Package](https://img.shields.io/pypi/v/pixelmemory?color=4D148C)](https://pypi.org/project/pixelmemory/)
+[![My Discord (1306431018890166272)](https://img.shields.io/badge/💬-Discord-%235865F2.svg)](https://discord.gg/QPyqFYx2UN)
 
-## Core Philosophy
+[**Installation**](#-installation) |
+[**Quick Start**](#-usage-example) |
+[**Examples**](#examples) |
+[**Discord Community**](https://discord.gg/QPyqFYx2UN)
 
-- **Developer Control**: You (or your agent) decide how memories are created, enriched, and linked. Pixelmemory provides the tools.
-- **Local-First**: Your data stays with you. Pixelmemory operates on your local Pixeltable instance.
-- **Simplicity for Core Tasks**: A clean API for the fundamental operation of adding memories.
-- **Power Through Pixeltable**: Direct access to the underlying Pixeltable table for advanced querying and data manipulation.
+</div>
 
-## Key Features
+---
 
-- **Intuitive Python API**: Add memories with simple `add_entry()` and `add_entries()` methods.
-- **Flexible Metadata**: Define a custom schema for metadata to store structured data alongside each memory.
-- **Batch Operations**: Efficiently add multiple memories at once.
-- **Namespaced Memory**: Maintain separate memory spaces using a `namespace` and `table_name` identifier (e.g., per user, per agent, per project).
-- **Direct Pixeltable Access**: The `Memory` object exposes the underlying `Pixeltable` table, allowing you to use its full feature set for complex queries, updates, and data analysis.
+Pixelmemory is the only Python framework that provides persistent, searchable, and multimodal memory for your LLM agents and applications.
+
+## 😩 Building AI Applications with Memory is Still Too Hard
+
+Most AI applications today are essentially goldfish—they forget everything the moment a conversation ends:
+*   Agents restart from scratch every time, losing valuable context and learned behaviors.
+*   RAG systems can't handle complex multimodal data or maintain conversation history.
+*   Expensive cloud memory solutions lock in your data with per-query fees and usage limits.
+*   Complex infrastructure required to store, index, and retrieve memories across text, images, videos, and documents.
+*   No semantic search capabilities for finding conceptually related memories.
+
+This memory amnesia makes AI applications feel disconnected and limits their ability to build meaningful, persistent relationships with users.
+
+## 💾 Installation
+
+```python
+pip install pixelmemory
+```
+
+**Pixelmemory is built on Pixeltable.** It stores memories and metadata persistently, typically in a `.pixeltable` directory in your workspace. Your data stays local and under your control.
+
+## ✨ What is Pixelmemory?
+
+With Pixelmemory, you can give your LLMs and agents persistent, searchable memory that works across all data types. Built on **[Pixeltable](https://docs.pixeltable.com/)**, Pixelmemory automatically handles:
+
+*   **Memory Storage & Retrieval:** Store conversations, interactions, and multimodal content with automatic timestamping.
+*   **Semantic Search:** Find relevant memories by meaning, not just keywords, using built-in embedding indexes.
+*   **Multimodal Support:** Handle text, images, videos, audio, and documents in a unified memory interface.
+*   **Flexible Schemas:** Define custom memory structures that fit your exact application needs.
+*   **Batch Operations:** Efficiently store and retrieve large volumes of memories.
+*   **Temporal Queries:** Access memories from specific time periods or conversation contexts.
+*   **Local-First:** Your data never leaves your infrastructure—no vendor lock-in or usage fees.
+
+**Focus on your agent logic, not the memory infrastructure.**
+
+## 🚀 Key Features
+
+* **[Intuitive Python API:](https://docs.pixeltable.com/docs/datastore/tables-and-operations)** Simple `insert()` and `batch_insert()` methods for storing memories.
+  ```python
+  memory = Memory("chatbot", "conversations", schema)
+  memory.insert({"role": "user", "content": "Remember this"})
+  ```
+
+* **[Semantic Memory Search:](https://docs.pixeltable.com/docs/datastore/embedding-index)** Built-in similarity search across your memory store.
+  ```python
+  # Find memories similar to current input
+  similarity = memory.content.similarity("user's question")
+  relevant_memories = memory.where(similarity >= 0.7).collect()
+  ```
+
+* **[Multimodal Memory Types:](https://docs.pixeltable.com/docs/datastore/bringing-data)** Store and search across all data modalities.
+  ```python
+  multimodal_schema = {
+      'text': pxt.String,
+      'image': pxt.Image,
+      'video': pxt.Video,
+      'audio': pxt.Audio
+  }
+  ```
+
+* **[Flexible Memory Organization:](https://docs.pixeltable.com/docs/datastore/views)** Namespace and organize memories by agent, user, or conversation.
+  ```python
+  user_memory = Memory("agent_1", "user_123_history", schema)
+  global_memory = Memory("agent_1", "knowledge_base", schema)
+  ```
+
+* **[Advanced Querying:](https://docs.pixeltable.com/docs/datastore/filtering-and-selecting)** Combine semantic search with filters and temporal queries.
+  ```python
+  recent_relevant = (
+      memory
+      .where((memory.timestamp > yesterday) & (similarity >= 0.8))
+      .order_by(similarity, asc=False)
+      .limit(5)
+  )
+  ```
+
+* **[Direct Pixeltable Access:](https://docs.pixeltable.com/docs/datastore/custom-functions)** Full database power when you need advanced functionality.
+  ```python
+  # Memory object forwards to underlying Pixeltable table
+  memory.show()  # Display memories
+  memory.describe()  # Schema info
+  memory.drop()  # Advanced operations
+  ```
 
 ## Installation
 
 ```bash
 pip install pixelmemory
-# Ensure you have Pixeltable installed and configured as per its documentation.
 ```
+
+## Examples
+
+This project includes a variety of examples to help you get started and explore different features.
+
+### Basic Usage (`examples/usage/basic/`)
+- `insert.py`
+- `search.py`
+
+### Memory Types (`examples/memory_types/`)
+- `agentic_memory.py`
+- `long_term_conversational.py`
+- `multimodal.py`
+- `semantic_similiarity.py`
+- `short_term_conversational.py`
+
+### Multimodal (`examples/multimodal/`)
+- `image.py`
+- `text.py`
+- `video.py`
+
+### Integrations (`examples/integrations/`)
+- `anthropic.py`
+- `autogen.py`
+- `groq.py`
+- `oai.py`
+- `pixelagent.py`
 
 ## Usage Example
 
-Here is a trivial example of how to use `pixelmemory`.
+This example demonstrates a simple chat application that uses Pixelmemory to store and retrieve conversation history for semantic search.
 
 ```python
-from pixelmemory import Memory
+from openai import OpenAI
 import pixeltable as pxt
+from pixelmemory import Memory
+from datetime import datetime
 
-# 1. Initialize the memory store
-# This creates a pixeltable table named 'my_agent_memory' in the 'agent_1' namespace.
-# It also adds a custom metadata column 'source' of type string.
-print("Initializing Memory...")
+openai_client = OpenAI()
+
+chat_schema = {
+    "user_id": pxt.String,
+    "role": pxt.String,
+    "content": pxt.String,
+}
+
+chat_memory = Memory(
+    namespace="chatbot_basic",
+    table_name="conversation_history",
+    schema=chat_schema,
+    columns_to_index=["content"],
+    if_exists="ignore"
+)
+
+def chat_with_ai_and_memories(message: str, user_id: str = "default_user") -> str:
+    similarity_score = chat_memory.content.similarity(message)
+    
+    relevant_memories_query = (
+        chat_memory
+        .where((chat_memory.user_id == user_id) & (similarity_score >= 0.7))
+        .order_by(similarity_score, asc=False)
+        .select(chat_memory.role, chat_memory.content)
+        .limit(3)
+    )
+    
+    retrieved_memories = relevant_memories_query.collect()
+
+    memories_str = "\n".join(f"- {entry['role']}: {entry['content']}" for entry in retrieved_memories)
+    if not memories_str:
+        memories_str = "No relevant memories found."
+
+    system_prompt = (
+        "You are a helpful AI assistant. "
+        "Answer the user's question based on the current query and the following relevant past conversation snippets.\n"
+        f"Relevant Past Conversation:\n{memories_str}"
+    )
+    
+    llm_messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": message}
+    ]
+
+    response = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=llm_messages
+    )
+    assistant_response = response.choices[0].message.content
+
+    new_memories = [
+        {"user_id": user_id, "role": "user", "content": message},
+        {"user_id": user_id, "role": "assistant", "content": assistant_response}
+    ]
+    chat_memory.insert(new_memories)
+
+    return assistant_response
+
+def main():
+    print("Chat with AI (type 'exit' to quit)")
+    user_id_for_session = "test_user_123"
+    while True:
+        user_input = input("You: ").strip()
+        if user_input.lower() == 'exit':
+            print("Goodbye!")
+            break
+        
+        ai_reply = chat_with_ai_and_memories(user_input, user_id=user_id_for_session)
+        print(f"AI: {ai_reply}")
+
+if __name__ == "__main__":
+    main()
+```
+
+## Advanced Search and Querying with Pixeltable
+
+Pixelmemory allows direct access to the underlying Pixeltable API for powerful and flexible querying. This means you can leverage Pixeltable's full capabilities for semantic search, temporal filtering, and complex data retrieval.
+
+Here's an example based on `examples/usage/basic/search.py`, demonstrating how to perform semantic and temporal searches:
+
+```python
+import uuid
+from datetime import datetime, timedelta
+
+import pixeltable as pxt
+from pixelmemory import Memory
+
+schema = {
+    "memory_id": pxt.Required[pxt.String],
+    "role": pxt.String,
+    "content": pxt.String,
+    "insert_at": pxt.Timestamp,
+}
+
 memory = Memory(
-    namespace="agent_1",
-    table_name="my_agent_memory",
-    metadata={"source": pxt.String},
-    if_exists="replace_force"  # Use 'replace_force' for this example to ensure it runs cleanly
+    namespace="chatbot_advanced_search",
+    table_name="chat_history_advanced",
+    schema=schema,
+    columns_to_index=["content"],
+    embedding_model="intfloat/e5-large-v2",
+    if_exists="ignore",
 )
 
-# 2. Add a single memory entry
-print("\nAdding a single entry...")
-memory.add_entry(
-    content="The user's favorite color is blue.",
-    metadata={"source": "conversation_1"}
-)
+memory_id_conv1 = uuid.uuid4().hex
+memory_id_conv2 = uuid.uuid4().hex
+memory_id_conv3 = uuid.uuid4().hex
 
-# 3. Add multiple entries in a batch
-print("\nAdding multiple entries...")
-entries_to_add = [
+data_to_insert = [
     {
-        "content": "The user is interested in machine learning.",
-        "metadata": {"source": "conversation_2"}
+        "memory_id": memory_id_conv1,
+        "role": "user",
+        "content": "Hello, how are you today?",
+        "insert_at": datetime.now() - timedelta(minutes=10),
     },
     {
-        "content": "The user asked for a summary of the latest news.",
-        "metadata": {"source": "conversation_3"}
+        "memory_id": memory_id_conv1,
+        "role": "assistant",
+        "content": "I am doing well! I learned that Pixeltable is a database for AI.",
+        "insert_at": datetime.now() - timedelta(minutes=9),
+    },
+    {
+        "memory_id": memory_id_conv2,
+        "role": "user",
+        "content": "What are the key features of Pixeltable?",
+        "insert_at": datetime.now() - timedelta(days=2),
+    },
+    {
+        "memory_id": memory_id_conv2,
+        "role": "assistant",
+        "content": "Pixeltable excels at handling multimodal data like images and videos, and supports time-travel queries.",
+        "insert_at": datetime.now() - timedelta(days=2, minutes=-1),
+    },
+    {
+        "memory_id": memory_id_conv3,
+        "role": "user",
+        "content": "Tell me about yesterday's discussion on project alpha.",
+        "insert_at": datetime.now() - timedelta(hours=20),
+    },
+    {
+        "memory_id": memory_id_conv3,
+        "role": "assistant",
+        "content": "Yesterday, we decided to use Python for project alpha's backend.",
+        "insert_at": datetime.now() - timedelta(hours=19, minutes=50),
     }
 ]
-memory.add_entries(entries_to_add)
+memory.insert(data_to_insert)
 
-# 4. Access the underlying Pixeltable table to view and query memories
-print("\nAll memories stored:")
-print(memory.table.collect())
+query_text = "Information about Pixeltable features"
+min_similarity_threshold = 0.7
 
-# You can use the full power of Pixeltable for advanced querying
-print("\nQuerying for memories from 'conversation_1':")
-query_result = memory.table.where(memory.table.source == 'conversation_1').collect()
-print(query_result)
+similarity_score = memory.content.similarity(query_text)
+
+relevant_memories = (
+    memory.where(similarity_score >= min_similarity_threshold)
+    .order_by(similarity_score, asc=False)
+    .select(
+        memory.role,
+        memory.content,
+        similarity=similarity_score
+    )
+    .limit(5)
+)
+
+print("Semantic Search Results:")
+for row in relevant_memories.collect():
+    print(f"  Role: {row['role']}, Content: '{row['content']}', Similarity: {row['similarity']:.4f}")
+
+# Temporal Search: Find memories within a specific time window (e.g., last 12 to 36 hours)
+start_time_window = datetime.now() - timedelta(hours=36)
+end_time_window = datetime.now() - timedelta(hours=12)
+
+memories_in_window = (
+    memory.where((memory.insert_at >= start_time_window) & (memory.insert_at <= end_time_window))
+    .order_by(memory.insert_at, asc=False)
+    .select(
+        memory.role,
+        memory.content,
+        memory.insert_at
+    )
+)
+
+print(f"\nMemories from {start_time_window.strftime('%Y-%m-%d %H:%M')} to {end_time_window.strftime('%Y-%m-%d %H:%M')}:")
+for row in memories_in_window.collect():
+    print(f"  Role: {row['role']}, Content: '{row['content']}', Timestamp: {row['insert_at']}")
+
+```
+This demonstrates leveraging Pixeltable's native querying for advanced memory retrieval, providing fine-grained control over how memories are searched and filtered.

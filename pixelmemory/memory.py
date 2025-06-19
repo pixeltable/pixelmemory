@@ -1,8 +1,6 @@
 from typing import Dict, Literal, Optional, Any, List
-import uuid
-import datetime
-
 import pixeltable as pxt
+from pixeltable.functions.huggingface import sentence_transformer
 
 SchemaType = Literal[
     pxt.Array,
@@ -21,66 +19,47 @@ SchemaType = Literal[
 
 
 class Memory:
-    def __init__(
-        self,
+    def __init__(self,
         namespace: str = "default_memory",
         table_name: str = "memory",
-        metadata: Optional[Dict[str, SchemaType]] = None,
-        if_exists: Literal["error", "ignore", "replace_force"] = "error",
+        schema: Optional[Dict[str, SchemaType]] = None, 
+        columns_to_index: Optional[List[str]] = None,
+        idx_name: Optional[str] = "similarity",
+        embedding_model: Optional[str] = "intfloat/e5-large-v2",
+        if_exists: Literal["ignore", "error", "replace_force"] = "ignore",
+        **kwargs
     ):
-        self.namespace = namespace
-        self.table_name = table_name
-        self.metadata = metadata
-        self.if_exists = if_exists
-
-        default_schema = {
-            "memory_id": pxt.Required[pxt.String],
-            "insert_at": pxt.Required[pxt.Timestamp],
-            "content": pxt.Required[pxt.String],
-        }
-
-        pxt.create_dir(self.namespace, if_exists=self.if_exists)
-
-        t = pxt.create_table(
-            f"{self.namespace}.{self.table_name}",
-            schema=default_schema,
-            primary_key="memory_id",
-            if_exists=self.if_exists,
+        self.namespace: str = namespace
+        self.table_name: str = table_name
+        self.columns_to_index: Optional[List[str]] = columns_to_index
+        self.idx_name: Optional[str] = idx_name
+        self.embedding_model: Optional[str] = embedding_model
+        
+        table_path = f"{self.namespace}.{self.table_name}"
+        if self.namespace not in pxt.list_dirs():
+            pxt.create_dir(self.namespace)
+        
+        self.schema: Dict[str, SchemaType] = schema
+        self.table: pxt.Table = pxt.create_table(
+            table_path,
+            schema=self.schema,
+            if_exists=if_exists,
+            **kwargs 
         )
+        
+        if self.columns_to_index:
+            self._initialize_automatic_indexing()
 
-        if self.metadata:
-            t.add_columns(self.metadata, if_exists=self.if_exists)
+    def _initialize_automatic_indexing(self) -> None:
+        if not self.columns_to_index:
+            return
+        
+        embed_model_instance = sentence_transformer.using(model_id=self.embedding_model)
+        for col_name in self.columns_to_index:
+            if col_name in self.schema: 
+                self.table.add_embedding_index(column=col_name, idx_name=self.idx_name, string_embed=embed_model_instance, if_exists="ignore")
 
-        self.table = t
-
-    def add_entry(self, content: str, metadata: Optional[Dict[str, Any]] = None) -> str:
-        memory_id = uuid.uuid4().hex
-        data = {
-            "memory_id": memory_id,
-            "insert_at": datetime.datetime.now(),
-            "content": content,
-        }
-        if metadata:
-            data.update(metadata)
-        self.table.insert([data])
-        return memory_id
-
-    def add_entries(self, entries: List[Dict[str, Any]]) -> List[str]:
-        memory_ids = []
-        records = []
-        for entry in entries:
-            memory_id = uuid.uuid4().hex
-            memory_ids.append(memory_id)
-            record = {
-                'memory_id': memory_id,
-                'insert_at': datetime.datetime.now(),
-                'content': entry['content'],
-            }
-            if 'metadata' in entry and entry.get('metadata'):
-                record.update(entry['metadata'])
-            records.append(record)
-
-        if records:
-            self.table.insert(records)
-
-        return memory_ids
+    def __getattr__(self, name: str) -> Any:
+        if hasattr(self.table, name):
+            return getattr(self.table, name)
+        raise AttributeError(f"'{self.__class__.__name__}' object (or its underlying Table) has no attribute '{name}'")

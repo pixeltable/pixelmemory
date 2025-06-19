@@ -17,7 +17,7 @@ memory = Memory(
     schema=schema,
     columns_to_index=["content"],
     embedding_model="intfloat/e5-large-v2",
-    if_exists="ignore",
+    if_exists="replace_force",
 )
 
 memory_id = uuid.uuid4().hex
@@ -31,40 +31,15 @@ data = [
     {
         "memory_id": memory_id,
         "role": "assistant",
-        "content": "pixeltable is a database for AI.",
+        "content": "I'm doing well, thank you! How about you?",
         "insert_at": datetime.now(),
     },
 ]
 
 memory.insert(data)
 
-# semantic search
-query_text = "What are the key features of Pixeltable?"
-min_similarity = 0.8
-sim = memory.content.similarity(query_text)
-result = (
-    memory.where(sim >= min_similarity)
-    .order_by(sim, asc=False)
-    .select(
-        memory.role, 
-        memory.content, 
-        sim=sim
-    )
-    .limit(1)
-)
+# return all rows
+res = memory.collect()
 
-print(result.collect())
-
-# Temporal search
-result = (
-    memory.where(memory.insert_at >= datetime.now() - timedelta(days=1))
-    .order_by(memory.insert_at, asc=False)
-    .select(
-        memory.role, 
-        memory.content, 
-        memory.insert_at
-    )
-    .limit(1)
-)
-
-print(result.collect())
+for row in res:
+    print(f"{row['role']}: {row['content']}")
