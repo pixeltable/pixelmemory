@@ -331,3 +331,190 @@ for row in memories_in_window.collect():
 
 ```
 This demonstrates leveraging Pixeltable's native querying for advanced memory retrieval, providing fine-grained control over how memories are searched and filtered.
+
+## 🖼️ Image Memory & Multimodal Search
+
+Pixelmemory provides automatic image embedding and search capabilities using state-of-the-art vision models. When you include `pxt.Image` columns in your schema and `columns_to_index`, Pixelmemory automatically:
+
+1. **Analyzes images** using vision models (OpenAI GPT-4o, Gemini, or Anthropic)
+2. **Generates detailed descriptions** optimized for semantic search
+3. **Creates embedding indexes** for fast similarity search
+4. **Optionally adds CLIP embeddings** for direct image-to-image search
+
+### Basic Image Memory Example
+
+```python
+import pixeltable as pxt
+from pixelmemory import Memory
+
+# Define schema with images
+schema = {
+    "image": pxt.Image,
+    "caption": pxt.String,
+    "tags": pxt.String,
+}
+
+# Create Memory with automatic image indexing
+memory = Memory(
+    namespace="visual_memory",
+    table_name="photo_collection",
+    schema=schema,
+    columns_to_index=["image", "caption"],  # Index both images and text
+    vision_provider="openai",  # or "gemini", "anthropic"
+    vision_model="gpt-4o-mini",
+    vision_prompt="Describe this image in detail, focusing on objects, colors, and scene.",
+)
+
+# Insert images - descriptions generated automatically
+memory.insert([
+    {
+        "image": "path/to/garden.jpg",
+        "caption": "Colorful flower garden", 
+        "tags": "nature, flowers, outdoor"
+    },
+    {
+        "image": "path/to/kitchen.jpg",
+        "caption": "Modern kitchen interior",
+        "tags": "interior, cooking, appliances"
+    }
+])
+
+# Search images by content - finds relevant images even if caption doesn't match
+query = "kitchen appliances and cooking"
+similarity = memory.image_description.similarity(query)
+results = (
+    memory
+    .where(similarity >= 0.3)
+    .order_by(similarity, asc=False)
+    .select(memory.caption, memory.tags, similarity=similarity)
+    .collect()
+)
+
+for result in results:
+    print(f"Found: {result['caption']} (similarity: {result['similarity']:.3f})")
+```
+
+### Advanced Image Features
+
+```python
+# Advanced configuration with custom vision parameters and CLIP
+memory = Memory(
+    namespace="advanced_visual",
+    table_name="media_library",
+    schema={"image": pxt.Image, "title": pxt.String},
+    columns_to_index=["image"],
+    
+    # Vision configuration
+    vision_provider="openai",
+    vision_model="gpt-4o-mini",
+    vision_prompt="Analyze this image: 1) Objects and colors 2) Setting 3) Text visible 4) Mood",
+    vision_kwargs={
+        "max_tokens": 300,
+        "temperature": 0.3
+    },
+    
+    # Optional: Add direct CLIP embeddings for image-to-image search
+    use_clip=True,
+    clip_model="openai/clip-vit-base-patch32"
+)
+
+# Insert images with automatic vision analysis
+memory.insert([
+    {"image": "sunset.jpg", "title": "Beach Sunset"},
+    {"image": "city.jpg", "title": "Urban Skyline"}
+])
+
+# Search using natural language - works on automatically generated descriptions
+query = "orange and pink colors in outdoor setting"
+similarity = memory.image_description.similarity(query)
+results = memory.where(similarity >= 0.4).order_by(similarity, asc=False).collect()
+```
+
+### Multimodal Memory (Text + Images)
+
+```python
+# Combined text and image memory for comprehensive search
+schema = {
+    "content_type": pxt.String,  # "text" or "image"
+    "image": pxt.Image,
+    "text_content": pxt.String,
+    "title": pxt.String,
+}
+
+memory = Memory(
+    namespace="multimodal",
+    table_name="content_library",
+    schema=schema,
+    columns_to_index=["image", "text_content"],  # Index both modalities
+    vision_prompt="Describe this image for search: key objects, colors, setting, and context."
+)
+
+# Insert mixed content
+memory.insert([
+    {
+        "content_type": "image",
+        "image": "garden.jpg",
+        "text_content": None,
+        "title": "Garden Photo"
+    },
+    {
+        "content_type": "text", 
+        "image": None,
+        "text_content": "Guide to growing colorful flowers in small spaces",
+        "title": "Gardening Tips"
+    }
+])
+
+# Search across both text and images
+query = "colorful flower garden"
+
+# Find text matches
+text_sim = memory.text_content.similarity(query)
+text_results = memory.where(text_sim >= 0.3).select(memory.title, text_sim).collect()
+
+# Find image matches
+image_sim = memory.image_description.similarity(query) 
+image_results = memory.where(image_sim >= 0.3).select(memory.title, image_sim).collect()
+
+print("Text matches:", text_results)
+print("Image matches:", image_results)
+```
+
+### Vision Provider Options
+
+Choose from multiple vision providers:
+
+```python
+# OpenAI GPT-4o (default)
+memory = Memory(
+    schema={"image": pxt.Image},
+    columns_to_index=["image"],
+    vision_provider="openai",
+    vision_model="gpt-4o-mini",
+    vision_kwargs={"max_tokens": 200}
+)
+
+# Google Gemini
+memory = Memory(
+    schema={"image": pxt.Image},
+    columns_to_index=["image"],
+    vision_provider="gemini", 
+    vision_model="gemini-2.0-flash",
+    vision_kwargs={
+        "config": {
+            "temperature": 0.4,
+            "max_output_tokens": 300
+        }
+    }
+)
+
+# Anthropic Claude
+memory = Memory(
+    schema={"image": pxt.Image},
+    columns_to_index=["image"],
+    vision_provider="anthropic",
+    vision_model="claude-3-haiku-20240307"
+)
+```
+
+The image descriptions are automatically generated and indexed when you insert data, enabling powerful semantic search across your visual content without any additional setup.
