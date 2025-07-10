@@ -1,9 +1,9 @@
 import pixeltable as pxt
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Optional
 import pixeltable as pxt
 import dataclasses
 from .memory import Memory
-from .columns import (
+from .context import (
     Image,
     Audio,
     Video,

@@ -56,7 +56,7 @@ class String(Context):
 
 @dataclass
 class Video(Context):
-    frame_params: FrameIteratorParams = field(default_factory=FrameIteratorParams)
+    frame_params: FrameIteratorParams = field(default_factteaory=FrameIteratorParams)
     transcription_model: str = "whisper-1"
     transcription_kwargs: WhisperParams = field(default_factory=WhisperParams)
     audio_chunk_params: AudioSplitterParams = field(

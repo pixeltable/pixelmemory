@@ -1,4 +1,4 @@
-from typing import Dict, Any, Literal, Union, Callable, Optional
+from typing import Literal, Optional
 import pixeltable as pxt
 from dataclasses import dataclass, field
 

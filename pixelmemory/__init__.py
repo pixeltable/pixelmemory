@@ -1,8 +1,4 @@
-"""
-PixelMemory: A minimalist memory management system for AI applications.
-"""
-
 from .memory import Memory
-from . import columns
+from . import context
 
-__all__ = ["Memory", "columns"]
+__all__ = ["Memory", "context"]
