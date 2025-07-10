@@ -27,7 +27,7 @@ def prepare_vision_args(
     provider: str,
     model: str,
     prompt: str,
-    kwargs: Dict[str, Any],
+    llm_kwargs: Dict[str, Any],
     col_name: str,
     target_obj: pxt.Table,
 ) -> dict:
@@ -35,8 +35,8 @@ def prepare_vision_args(
 
     if provider == "openai":
         args = {"prompt": prompt, "image": image_col, "model": model}
-        if kwargs:
-            args["model_kwargs"] = kwargs
+        if llm_kwargs:
+            args["model_kwargs"] = llm_kwargs
         return args
 
     elif provider == "anthropic":
@@ -59,8 +59,8 @@ def prepare_vision_args(
             ],
             "model": model,
         }
-        if kwargs:
-            args.update(kwargs)
+        if llm_kwargs:
+            args.update(llm_kwargs)
         return args
 
     else:

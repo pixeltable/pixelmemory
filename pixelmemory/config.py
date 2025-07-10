@@ -19,8 +19,10 @@ SchemaType = Literal[
 
 
 @dataclass
-class StringSplitterParams:
-    separators: str = "sentence"
+class AudioSplitterParams:
+    chunk_duration_sec: float = 30.0
+    overlap_sec: float = 0.0
+    min_chunk_duration_sec: float = 0.0
 
 
 @dataclass
@@ -35,48 +37,30 @@ class DocumentSplitterParams:
 
 
 @dataclass
-class AudioSplitterParams:
-    chunk_duration_sec: float = 30.0
-    overlap_sec: float = 0.0
-    min_chunk_duration_sec: float = 0.0
-
-
-@dataclass
 class FrameIteratorParams:
     fps: Optional[float] = None
     num_frames: Optional[int] = None
 
 
 @dataclass
-class Text:
-    embedding_model: Union[str, Callable] = "intfloat/e5-large-v2"
-    idx_name: str = "similarity"
-    use_chunking: bool = False
-    chunk_params: StringSplitterParams = field(default_factory=StringSplitterParams)
+class StringSplitterParams:
+    separators: str = "sentence"
 
 
 @dataclass
-class Vision:
-    provider: Literal["openai", "anthropic", "gemini"] = "openai"
-    model: str = "gpt-4o-mini"
-    prompt: str = "Describe this image in detail, including colors, objects, scene, and any text visible."
-    kwargs: Dict[str, Any] = field(default_factory=dict)
-    use_clip: bool = False
-    clip_model: str = "openai/clip-vit-base-patch32"
+class WhisperParams:
+    language: Optional[str] = None
+    prompt: Optional[str] = None
+    temperature: Optional[float] = None
 
 
 @dataclass
 class Audio:
     transcription_model: str = "whisper-1"
-    transcription_kwargs: Dict[str, Any] = field(default_factory=dict)
+    transcription_kwargs: WhisperParams = field(default_factory=WhisperParams)
     chunk_params: AudioSplitterParams = field(
         default_factory=lambda: AudioSplitterParams(chunk_duration_sec=30.0)
     )
-
-
-@dataclass
-class Video:
-    frame_params: FrameIteratorParams = field(default_factory=FrameIteratorParams)
 
 
 @dataclass
@@ -87,9 +71,54 @@ class Document:
 
 
 @dataclass
+class Text:
+    embedding_model: Union[str, Callable] = "intfloat/e5-large-v2"
+    index_name: str = "similarity"
+    use_chunking: bool = False
+    chunk_params: StringSplitterParams = field(default_factory=StringSplitterParams)
+
+
+@dataclass
+class Video:
+    frame_params: FrameIteratorParams = field(default_factory=FrameIteratorParams)
+
+
+@dataclass
+class Vision:
+    provider: Literal["openai", "anthropic"] = "openai"
+    model: str = "gpt-4o-mini"
+    prompt: str = "Describe this image in detail, including colors, objects, scene, and any text visible."
+    llm_kwargs: Dict[str, Any] = field(default_factory=dict)
+    use_clip: bool = False
+    clip_model: str = "openai/clip-vit-base-patch32"
+
+
+@dataclass
 class Column:
     embedding_model: Union[str, Callable] = None
-    idx_name: str = None
+    index_name: str = None
+
+
+@dataclass
+class AudioColumn(Column):
+    transcription_model: str = None
+    transcription_kwargs: WhisperParams = None
+    chunk_params: AudioSplitterParams = None
+
+
+@dataclass
+class DocumentColumn(Column):
+    chunk_params: DocumentSplitterParams = None
+
+
+@dataclass
+class ImageColumn(Column):
+    provider: Literal["openai", "anthropic"] = None
+    model: str = None
+    prompt: str = None
+    llm_kwargs: Dict[str, Any] = None
+    use_clip: bool = None
+    clip_model: str = None
 
 
 @dataclass
@@ -99,39 +128,17 @@ class StringColumn(Column):
 
 
 @dataclass
-class ImageColumn(Column):
-    provider: Literal["openai", "anthropic", "gemini"] = None
-    model: str = None
-    prompt: str = None
-    kwargs: Dict[str, Any] = None
-    use_clip: bool = None
-    clip_model: str = None
-
-
-@dataclass
-class AudioColumn(Column):
-    transcription_model: str = None
-    transcription_kwargs: Dict[str, Any] = None
-    chunk_params: AudioSplitterParams = None
-
-
-@dataclass
 class VideoColumn(Column):
     frame_params: FrameIteratorParams = None
     transcription_model: str = None
-    transcription_kwargs: Dict[str, Any] = None
+    transcription_kwargs: WhisperParams = None
     audio_chunk_params: AudioSplitterParams = None
-    provider: Literal["openai", "anthropic", "gemini"] = None
+    provider: Literal["openai", "anthropic"] = None
     model: str = None
     prompt: str = None
-    kwargs: Dict[str, Any] = None
+    llm_kwargs: Dict[str, Any] = None
     use_clip: bool = None
     clip_model: str = None
-
-
-@dataclass
-class DocumentColumn(Column):
-    chunk_params: DocumentSplitterParams = None
 
 
 class ColumnsToEmbed:

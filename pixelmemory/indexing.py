@@ -25,15 +25,15 @@ def setup_column_indexing(
     embed_model = memory_instance._get_embed_model(
         col_settings.embedding_model if col_settings else None
     )
-    idx_name = (
-        col_settings.idx_name
-        if col_settings and col_settings.idx_name is not None
-        else memory_instance.text.idx_name
+    index_name = (
+        col_settings.index_name
+        if col_settings and col_settings.index_name is not None
+        else memory_instance.text.index_name
     )
 
     if col_type == pxt.Image:
         setup_image_indexing(
-            memory_instance, col_name, embed_model, idx_name, col_settings
+            memory_instance, col_name, embed_model, index_name, col_settings
         )
 
     elif col_type == pxt.Audio:
@@ -41,24 +41,24 @@ def setup_column_indexing(
             memory_instance,
             col_name,
             embed_model,
-            idx_name,
+            index_name,
             col_settings,
             audio_col=None,
         )
 
     elif col_type == pxt.Video:
         setup_video_indexing(
-            memory_instance, col_name, embed_model, idx_name, col_settings
+            memory_instance, col_name, embed_model, index_name, col_settings
         )
 
     elif col_type == pxt.String:
         setup_string_indexing(
-            memory_instance, col_name, embed_model, idx_name, col_settings
+            memory_instance, col_name, embed_model, index_name, col_settings
         )
 
     elif col_type == pxt.Document:
         setup_document_indexing(
-            memory_instance, col_name, embed_model, idx_name, col_settings
+            memory_instance, col_name, embed_model, index_name, col_settings
         )
 
 
@@ -66,17 +66,17 @@ def setup_vision_indexing(
     target_obj: pxt.Table,
     img_col_name: str,
     embed_model: Callable,
-    idx_name: str,
+    index_name: str,
     provider: str,
     model: str,
     prompt: str,
-    kwargs: Dict[str, Any],
+    llm_kwargs: Dict[str, Any],
     use_clip: bool,
     clip_model: str,
 ) -> None:
     vision_func = get_vision_function(provider)
     vision_args = prepare_vision_args(
-        provider, model, prompt, kwargs, img_col_name, target_obj
+        provider, model, prompt, llm_kwargs, img_col_name, target_obj
     )
 
     description_col_name = create_vision_computed_column(
@@ -85,7 +85,7 @@ def setup_vision_indexing(
 
     target_obj.add_embedding_index(
         column=description_col_name,
-        idx_name=idx_name,
+        index_name=index_name,
         embedding=embed_model,
         if_exists="ignore",
     )
@@ -95,7 +95,7 @@ def setup_vision_indexing(
 
         target_obj.add_embedding_index(
             column=img_col_name,
-            idx_name=f"{idx_name}_clip",
+            index_name=f"{index_name}_clip",
             embedding=clip.using(model_id=clip_model),
             if_exists="ignore",
         )
@@ -105,7 +105,7 @@ def setup_document_indexing(
     memory_instance: Memory,
     col_name: str,
     embed_model: Callable,
-    idx_name: str,
+    index_name: str,
     col_settings: DocumentColumn = None,
 ) -> None:
     from pixeltable.iterators import DocumentSplitter
@@ -135,7 +135,7 @@ def setup_document_indexing(
     )
 
     chunk_view.add_embedding_index(
-        column="text", idx_name=idx_name, embedding=embed_model, if_exists="ignore"
+        column="text", index_name=index_name, embedding=embed_model, if_exists="ignore"
     )
 
 
@@ -143,7 +143,7 @@ def setup_image_indexing(
     memory_instance: Memory,
     col_name: str,
     embed_model: Callable,
-    idx_name: str,
+    index_name: str,
     col_settings: ImageColumn = None,
 ) -> None:
     provider = (
@@ -161,10 +161,10 @@ def setup_image_indexing(
         if col_settings and col_settings.prompt is not None
         else memory_instance.vision.prompt
     )
-    kwargs = (
-        col_settings.kwargs
-        if col_settings and col_settings.kwargs is not None
-        else memory_instance.vision.kwargs
+    llm_kwargs = (
+        col_settings.llm_kwargs
+        if col_settings and col_settings.llm_kwargs is not None
+        else memory_instance.vision.llm_kwargs
     )
     use_clip = (
         col_settings.use_clip
@@ -181,11 +181,11 @@ def setup_image_indexing(
         memory_instance.table,
         col_name,
         embed_model,
-        idx_name,
+        index_name,
         provider,
         model,
         prompt,
-        kwargs,
+        llm_kwargs,
         use_clip,
         clip_model,
     )
@@ -195,7 +195,7 @@ def setup_audio_indexing(
     memory_instance: Memory,
     col_name: str,
     embed_model: Callable,
-    idx_name: str,
+    index_name: str,
     col_settings: AudioColumn = None,
     audio_col=None,
 ) -> None:
@@ -212,11 +212,14 @@ def setup_audio_indexing(
         if col_settings and col_settings.transcription_model is not None
         else memory_instance.audio.transcription_model
     )
-    transcription_kwargs = (
+    whisper_params = (
         col_settings.transcription_kwargs
         if col_settings and col_settings.transcription_kwargs is not None
         else memory_instance.audio.transcription_kwargs
     )
+    transcription_kwargs = {
+        k: v for k, v in dataclasses.asdict(whisper_params).items() if v is not None
+    }
 
     audio_chunk_view_name = f"{memory_instance.table_name}_{col_name}_audio_chunks"
     audio_chunk_view_path = f"{memory_instance.namespace}.{audio_chunk_view_name}"
@@ -264,7 +267,7 @@ def setup_audio_indexing(
     )
 
     sentence_chunk_view.add_embedding_index(
-        column="text", idx_name=idx_name, embedding=embed_model, if_exists="ignore"
+        column="text", index_name=index_name, embedding=embed_model, if_exists="ignore"
     )
 
 
@@ -272,7 +275,7 @@ def setup_video_indexing(
     memory_instance: Memory,
     col_name: str,
     embed_model: Callable,
-    idx_name: str,
+    index_name: str,
     col_settings: VideoColumn = None,
 ) -> None:
     from pixeltable.functions.video import extract_audio
@@ -293,11 +296,14 @@ def setup_video_indexing(
         if col_settings and col_settings.transcription_model is not None
         else memory_instance.audio.transcription_model
     )
-    transcription_kwargs = (
+    whisper_params = (
         col_settings.transcription_kwargs
         if col_settings and col_settings.transcription_kwargs is not None
         else memory_instance.audio.transcription_kwargs
     )
+    transcription_kwargs = {
+        k: v for k, v in dataclasses.asdict(whisper_params).items() if v is not None
+    }
     provider = (
         col_settings.provider
         if col_settings and col_settings.provider is not None
@@ -313,10 +319,10 @@ def setup_video_indexing(
         if col_settings and col_settings.prompt is not None
         else memory_instance.vision.prompt
     )
-    kwargs = (
-        col_settings.kwargs
-        if col_settings and col_settings.kwargs is not None
-        else memory_instance.vision.kwargs
+    llm_kwargs = (
+        col_settings.llm_kwargs
+        if col_settings and col_settings.llm_kwargs is not None
+        else memory_instance.vision.llm_kwargs
     )
     use_clip = (
         col_settings.use_clip
@@ -344,7 +350,7 @@ def setup_video_indexing(
         memory_instance,
         col_name,
         embed_model,
-        idx_name,
+        index_name,
         audio_col_settings,
         audio_col=audio_col,
     )
@@ -369,11 +375,11 @@ def setup_video_indexing(
         frame_view,
         "frame",
         embed_model,
-        idx_name,
+        index_name,
         provider,
         model,
         prompt,
-        kwargs,
+        llm_kwargs,
         use_clip,
         clip_model,
     )
@@ -383,7 +389,7 @@ def setup_string_indexing(
     memory_instance: Memory,
     col_name: str,
     embed_model: Callable,
-    idx_name: str,
+    index_name: str,
     col_settings: StringColumn = None,
 ) -> None:
     use_chunking = (
@@ -419,19 +425,22 @@ def setup_string_indexing(
         )
 
         chunk_view.add_embedding_index(
-            column="text", idx_name=idx_name, embedding=embed_model, if_exists="ignore"
+            column="text",
+            index_name=index_name,
+            embedding=embed_model,
+            if_exists="ignore",
         )
 
         memory_instance.table.add_embedding_index(
             column=col_name,
-            idx_name=f"{idx_name}_direct",
+            index_name=f"{index_name}_direct",
             embedding=embed_model,
             if_exists="ignore",
         )
     else:
         memory_instance.table.add_embedding_index(
             column=col_name,
-            idx_name=idx_name,
+            index_name=index_name,
             embedding=embed_model,
             if_exists="replace_force",
         )
