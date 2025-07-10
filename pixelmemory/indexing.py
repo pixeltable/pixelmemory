@@ -27,7 +27,7 @@ def setup_column_indexing(
     col_type: Any,
     col_settings: Optional[Any] = None,
 ) -> None:
-    embed_model = memory_instance._get_embed_model(col_settings.embedding_model)
+    embed_model = memory_instance._get_embed_model(col_settings.text_embedding_model)
     index_name = col_settings.index_name or "similarity"
 
     if col_type == pxt.Image:

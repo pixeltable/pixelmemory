@@ -13,8 +13,8 @@ from .config import (
 @dataclass
 class Context:
     name: str
-    embed: bool = True
-    embedding_model: Optional[Union[str, pxt.Function]] = None
+    text_embedding: bool = True
+    text_embedding_model: Optional[Union[str, pxt.Function]] = None
     index_name: Optional[str] = None
 
 
