@@ -31,10 +31,20 @@ memory.insert([{
 }])
 
 query = "What can you do with Pixeltable?"
+
+# Using the new get_index method for cleaner API
+index = memory.get_index('text_content')
+sim = index.similarity(query)
+
+# The old way still works:
+# chunk_view = memory.chunk_views['text_content']
+# sim = chunk_view.text.similarity(query)
+
 chunk_view = memory.chunk_views['text_content']
-sim = chunk_view.text.similarity(query)
 results = chunk_view.order_by(sim, asc=False).limit(2).select(chunk_view.text, similarity=sim).collect()
 
+print(f"Query: '{query}'")
+print("Results using the improved get_index() method:")
 for res in results:
     print(f"Similarity: {res['similarity']:.4f}")
     print(f"Text: {res['text']}\n")

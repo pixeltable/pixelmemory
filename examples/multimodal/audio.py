@@ -3,16 +3,14 @@ from pixelmemory import Memory
 import uuid
 from datetime import datetime
 
-audio_schema = {
-    'memory_id': pxt.Required[pxt.String],
-    'audio': pxt.Audio,
-    'inserted_at': pxt.Timestamp,
-}
-
 memory = Memory(
     namespace='audio_memory_example',
     table_name='audio_files',
-    schema=audio_schema,
+    schema={
+        'memory_id': pxt.Required[pxt.String],
+        'audio': pxt.Audio,
+        'inserted_at': pxt.Timestamp,
+    },
     columns_to_index=['audio'],
     primary_key='memory_id'
 )

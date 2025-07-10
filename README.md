@@ -38,6 +38,16 @@ pip install pixelmemory
 
 **Pixelmemory is built on Pixeltable.** It stores memories and metadata persistently, typically in a `.pixeltable` directory in your workspace. Your data stays local and under your control.
 
+## ⚙️ Audio Setup
+
+After installation, you may need to download models for certain functionalities. For example, to use `spacy` for natural language processing, you need to download a language model:
+
+```bash
+uv run -- spacy download en_core_web_sm
+```
+
+This command uses `uv` to run the `spacy` download command within your project's virtual environment.
+
 ## ✨ What is Pixelmemory?
 
 With Pixelmemory, you can give your LLMs and agents persistent, searchable memory that works across all data types. Built on **[Pixeltable](https://docs.pixeltable.com/)**, Pixelmemory automatically handles:

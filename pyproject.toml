@@ -33,7 +33,6 @@ classifiers = [
 dependencies = [
     "pixeltable (>=0.4.0)",
     "sentence-transformers (>=4.1.0)",
-    "spacy (>=3.8.7)",
 ]
 
 [project.urls]

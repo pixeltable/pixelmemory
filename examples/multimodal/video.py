@@ -2,6 +2,7 @@ import pixeltable as pxt
 from pixelmemory import Memory
 import uuid
 from datetime import datetime
+from pixeltable.functions.openai import embeddings
 
 video_schema = {
     'memory_id': pxt.Required[pxt.String],
@@ -14,6 +15,7 @@ memory = Memory(
     table_name='video_files',
     schema=video_schema,
     columns_to_index=['video'],
+    text_embedding_model=embeddings.using(model="text-embedding-3-small"),
     primary_key='memory_id'
 )
 
