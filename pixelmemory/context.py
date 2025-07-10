@@ -11,7 +11,7 @@ from .config import (
 
 
 @dataclass
-class Column:
+class Context:
     name: str
     embed: bool = True
     embedding_model: Optional[Union[str, pxt.Function]] = None
@@ -19,7 +19,7 @@ class Column:
 
 
 @dataclass
-class Audio(Column):
+class Audio(Context):
     transcription_model: str = "whisper-1"
     transcription_kwargs: WhisperParams = field(default_factory=WhisperParams)
     chunk_params: AudioSplitterParams = field(
@@ -29,7 +29,7 @@ class Audio(Column):
 
 
 @dataclass
-class Document(Column):
+class Document(Context):
     chunk_params: DocumentSplitterParams = field(
         default_factory=lambda: DocumentSplitterParams(limit=300)
     )
@@ -37,7 +37,7 @@ class Document(Column):
 
 
 @dataclass
-class Image(Column):
+class Image(Context):
     provider: Literal["openai", "anthropic"] = "openai"
     model: str = "gpt-4o-mini"
     prompt: str = "Describe this image in detail, including colors, objects, scene, and any text visible."
@@ -48,14 +48,14 @@ class Image(Column):
 
 
 @dataclass
-class String(Column):
+class String(Context):
     use_chunking: bool = False
     chunk_params: StringSplitterParams = field(default_factory=StringSplitterParams)
     _pxt_type: pxt.String = pxt.String
 
 
 @dataclass
-class Video(Column):
+class Video(Context):
     frame_params: FrameIteratorParams = field(default_factory=FrameIteratorParams)
     transcription_model: str = "whisper-1"
     transcription_kwargs: WhisperParams = field(default_factory=WhisperParams)

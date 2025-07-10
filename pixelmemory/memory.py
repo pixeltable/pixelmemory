@@ -6,7 +6,7 @@ from .config import (
     FrameView,
     IndexedColumn,
 )
-from .columns import Column
+from .context import Context
 
 
 @dataclass
@@ -20,7 +20,7 @@ class MemoryResources:
 class Memory:
     def __init__(
         self,
-        columns: List[Column],
+        context: List[Context],
         namespace: str = "default_memory",
         table_name: str = "memory",
         if_exists: Literal["ignore", "error", "replace_force"] = "ignore",
@@ -28,14 +28,14 @@ class Memory:
     ):
         self.namespace = namespace
         self.table_name = table_name
-        self.columns = columns
+        self.context = context
         self.if_exists = if_exists
 
         self.schema: Dict[str, pxt.ColumnType] = {
-            col.name: col._pxt_type for col in self.columns
+            col.name: col._pxt_type for col in self.context
         }
-        self.columns_to_embed: Dict[str, Column] = {
-            col.name: col for col in self.columns if col.embed
+        self.columns_to_embed: Dict[str, Context] = {
+            col.name: col for col in self.context if col.embed
         }
 
         table_path = f"{self.namespace}.{self.table_name}"
@@ -56,8 +56,6 @@ class Memory:
     def _get_embed_model(
         self, override_model: Optional[Union[str, pxt.Function]] = None
     ) -> pxt.Function:
-        # A default embedding model is still needed for cases where a column is embeddable
-        # but doesn't specify a model.
         model = override_model or "intfloat/e5-large-v2"
         if isinstance(model, str):
             from pixeltable.functions.huggingface import sentence_transformer
