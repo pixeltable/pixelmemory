@@ -1,18 +1,12 @@
-from typing import Dict, Any, Literal, List, Union, Callable, Optional
+from typing import Dict, Any, Literal, List, Union, Optional
 from dataclasses import dataclass
 import pixeltable as pxt
 from .config import (
-    SchemaType,
-    Text,
-    Vision,
-    Audio,
-    Video,
-    Document,
-    ColumnsToEmbed,
     ChunkView,
     FrameView,
     IndexedColumn,
 )
+from .columns import Column
 
 
 @dataclass
@@ -26,28 +20,23 @@ class MemoryResources:
 class Memory:
     def __init__(
         self,
-        schema: Dict[str, SchemaType],
+        columns: List[Column],
         namespace: str = "default_memory",
         table_name: str = "memory",
-        columns_to_embed: ColumnsToEmbed = ColumnsToEmbed(),
-        text: Text = Text(),
-        vision: Vision = Vision(),
-        audio: Audio = Audio(),
-        video: Video = Video(),
-        document: Document = Document(),
         if_exists: Literal["ignore", "error", "replace_force"] = "ignore",
         **kwargs,
     ):
         self.namespace = namespace
         self.table_name = table_name
-        self.schema = schema
-        self.columns_to_embed = columns_to_embed.columns
-        self.text = text
-        self.vision = vision
-        self.audio = audio
-        self.video = video
-        self.document = document
+        self.columns = columns
         self.if_exists = if_exists
+
+        self.schema: Dict[str, pxt.ColumnType] = {
+            col.name: col._pxt_type for col in self.columns
+        }
+        self.columns_to_embed: Dict[str, Column] = {
+            col.name: col for col in self.columns if col.embed
+        }
 
         table_path = f"{self.namespace}.{self.table_name}"
         if self.namespace not in pxt.list_dirs():
@@ -67,12 +56,13 @@ class Memory:
     def _get_embed_model(
         self, override_model: Optional[Union[str, pxt.Function]] = None
     ) -> pxt.Function:
-        model = override_model or self.text.embedding_model
+        # A default embedding model is still needed for cases where a column is embeddable
+        # but doesn't specify a model.
+        model = override_model or "intfloat/e5-large-v2"
         if isinstance(model, str):
             from pixeltable.functions.huggingface import sentence_transformer
 
             return sentence_transformer.using(model_id=model)
-        # We have to assume it's a pxt.Function if it's not a string
         return model
 
     def setup_indexing(self, columns_to_index: Optional[List[str]] = None) -> None:

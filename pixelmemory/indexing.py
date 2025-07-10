@@ -1,15 +1,16 @@
-# indexing.py
 import pixeltable as pxt
 from typing import Any, Callable, Dict, Optional
 import pixeltable as pxt
 import dataclasses
 from .memory import Memory
+from .columns import (
+    Image,
+    Audio,
+    Video,
+    String,
+    Document,
+)
 from .config import (
-    ImageColumn,
-    AudioColumn,
-    VideoColumn,
-    StringColumn,
-    DocumentColumn,
     ChunkView,
     FrameView,
 )
@@ -26,20 +27,13 @@ def setup_column_indexing(
     col_type: Any,
     col_settings: Optional[Any] = None,
 ) -> None:
-    embed_model = memory_instance._get_embed_model(
-        col_settings.embedding_model if col_settings else None
-    )
-    index_name = (
-        col_settings.index_name
-        if col_settings and col_settings.index_name is not None
-        else memory_instance.text.index_name
-    )
+    embed_model = memory_instance._get_embed_model(col_settings.embedding_model)
+    index_name = col_settings.index_name or "similarity"
 
     if col_type == pxt.Image:
         setup_image_indexing(
             memory_instance, col_name, embed_model, index_name, col_settings
         )
-
     elif col_type == pxt.Audio:
         setup_audio_indexing(
             memory_instance,
@@ -49,17 +43,14 @@ def setup_column_indexing(
             col_settings,
             audio_col=None,
         )
-
     elif col_type == pxt.Video:
         setup_video_indexing(
             memory_instance, col_name, embed_model, index_name, col_settings
         )
-
     elif col_type == pxt.String:
         setup_string_indexing(
             memory_instance, col_name, embed_model, index_name, col_settings
         )
-
     elif col_type == pxt.Document:
         setup_document_indexing(
             memory_instance, col_name, embed_model, index_name, col_settings
@@ -71,20 +62,20 @@ def setup_vision_indexing(
     img_col_name: str,
     embed_model: pxt.Function,
     index_name: str,
-    provider: str,
-    model: str,
-    prompt: str,
-    llm_kwargs: Dict[str, Any],
-    use_clip: bool,
-    clip_model: str,
+    col_settings: Image,
 ) -> None:
-    vision_func = get_vision_function(provider)
+    vision_func = get_vision_function(col_settings.provider)
     vision_args = prepare_vision_args(
-        provider, model, prompt, llm_kwargs, img_col_name, target_obj
+        col_settings.provider,
+        col_settings.model,
+        col_settings.prompt,
+        col_settings.llm_kwargs,
+        img_col_name,
+        target_obj,
     )
 
     description_col_name = create_vision_computed_column(
-        provider, img_col_name, vision_func, vision_args, target_obj
+        col_settings.provider, img_col_name, vision_func, vision_args, target_obj
     )
 
     target_obj.add_embedding_index(
@@ -94,13 +85,13 @@ def setup_vision_indexing(
         if_exists="ignore",
     )
 
-    if use_clip:
+    if col_settings.use_clip:
         from pixeltable.functions.huggingface import clip
 
         target_obj.add_embedding_index(
             column=img_col_name,
             idx_name=f"{index_name}_clip",
-            embedding=clip.using(model_id=clip_model),
+            embedding=clip.using(model_id=col_settings.clip_model),
             if_exists="ignore",
         )
 
@@ -110,15 +101,9 @@ def setup_document_indexing(
     col_name: str,
     embed_model: pxt.Function,
     index_name: str,
-    col_settings: Optional[DocumentColumn] = None,
+    col_settings: Document,
 ) -> None:
     from pixeltable.iterators import DocumentSplitter
-
-    chunk_params = (
-        col_settings.chunk_params
-        if col_settings and col_settings.chunk_params is not None
-        else memory_instance.document.chunk_params
-    )
 
     chunk_view_name = f"{memory_instance.table_name}_{col_name}_chunks"
     chunk_view_path = f"{memory_instance.namespace}.{chunk_view_name}"
@@ -129,7 +114,7 @@ def setup_document_indexing(
         chunk_view_path,
         memory_instance.table,
         iterator=DocumentSplitter.create(
-            document=document_source, **dataclasses.asdict(chunk_params)
+            document=document_source, **dataclasses.asdict(col_settings.chunk_params)
         ),
         if_exists="replace_force",
     )
@@ -150,50 +135,14 @@ def setup_image_indexing(
     col_name: str,
     embed_model: pxt.Function,
     index_name: str,
-    col_settings: Optional[ImageColumn] = None,
+    col_settings: Image,
 ) -> None:
-    provider = (
-        col_settings.provider
-        if col_settings and col_settings.provider is not None
-        else memory_instance.vision.provider
-    )
-    model = (
-        col_settings.model
-        if col_settings and col_settings.model is not None
-        else memory_instance.vision.model
-    )
-    prompt = (
-        col_settings.prompt
-        if col_settings and col_settings.prompt is not None
-        else memory_instance.vision.prompt
-    )
-    llm_kwargs = (
-        col_settings.llm_kwargs
-        if col_settings and col_settings.llm_kwargs is not None
-        else memory_instance.vision.llm_kwargs
-    )
-    use_clip = (
-        col_settings.use_clip
-        if col_settings and col_settings.use_clip is not None
-        else memory_instance.vision.use_clip
-    )
-    clip_model = (
-        col_settings.clip_model
-        if col_settings and col_settings.clip_model is not None
-        else memory_instance.vision.clip_model
-    )
-
     setup_vision_indexing(
         memory_instance.table,
         col_name,
         embed_model,
         index_name,
-        provider,
-        model,
-        prompt,
-        llm_kwargs,
-        use_clip,
-        clip_model,
+        col_settings,
     )
 
 
@@ -202,29 +151,16 @@ def setup_audio_indexing(
     col_name: str,
     embed_model: pxt.Function,
     index_name: str,
-    col_settings: Optional[AudioColumn] = None,
+    col_settings: Audio,
     audio_col: Optional[pxt.Column] = None,
 ) -> None:
     from pixeltable.iterators import AudioSplitter, StringSplitter
     from pixeltable.functions.openai import transcriptions
 
-    chunk_params = (
-        col_settings.chunk_params
-        if col_settings and col_settings.chunk_params is not None
-        else memory_instance.audio.chunk_params
-    )
-    transcription_model = (
-        col_settings.transcription_model
-        if col_settings and col_settings.transcription_model is not None
-        else memory_instance.audio.transcription_model
-    )
-    whisper_params = (
-        col_settings.transcription_kwargs
-        if col_settings and col_settings.transcription_kwargs is not None
-        else memory_instance.audio.transcription_kwargs
-    )
     transcription_kwargs = {
-        k: v for k, v in dataclasses.asdict(whisper_params).items() if v is not None
+        k: v
+        for k, v in dataclasses.asdict(col_settings.transcription_kwargs).items()
+        if v is not None
     }
 
     audio_chunk_view_name = f"{memory_instance.table_name}_{col_name}_audio_chunks"
@@ -238,7 +174,7 @@ def setup_audio_indexing(
         audio_chunk_view_path,
         memory_instance.table,
         iterator=AudioSplitter.create(
-            audio=audio_source, **dataclasses.asdict(chunk_params)
+            audio=audio_source, **dataclasses.asdict(col_settings.chunk_params)
         ),
         if_exists="replace_force",
     )
@@ -248,7 +184,7 @@ def setup_audio_indexing(
     transcription_col_name = f"{col_name}_transcription"
     whisper_args = {
         "audio": audio_chunk_view.audio_chunk,
-        "model": transcription_model,
+        "model": col_settings.transcription_model,
         **transcription_kwargs,
     }
 
@@ -286,64 +222,10 @@ def setup_video_indexing(
     col_name: str,
     embed_model: pxt.Function,
     index_name: str,
-    col_settings: Optional[VideoColumn] = None,
+    col_settings: Video,
 ) -> None:
     from pixeltable.functions.video import extract_audio
     from pixeltable.iterators import FrameIterator
-
-    frame_params = (
-        col_settings.frame_params
-        if col_settings and col_settings.frame_params is not None
-        else memory_instance.video.frame_params
-    )
-    audio_chunk_params = (
-        col_settings.audio_chunk_params
-        if col_settings and col_settings.audio_chunk_params is not None
-        else memory_instance.audio.chunk_params
-    )
-    transcription_model = (
-        col_settings.transcription_model
-        if col_settings and col_settings.transcription_model is not None
-        else memory_instance.audio.transcription_model
-    )
-    whisper_params = (
-        col_settings.transcription_kwargs
-        if col_settings and col_settings.transcription_kwargs is not None
-        else memory_instance.audio.transcription_kwargs
-    )
-    transcription_kwargs = {
-        k: v for k, v in dataclasses.asdict(whisper_params).items() if v is not None
-    }
-    provider = (
-        col_settings.provider
-        if col_settings and col_settings.provider is not None
-        else memory_instance.vision.provider
-    )
-    model = (
-        col_settings.model
-        if col_settings and col_settings.model is not None
-        else memory_instance.vision.model
-    )
-    prompt = (
-        col_settings.prompt
-        if col_settings and col_settings.prompt is not None
-        else memory_instance.vision.prompt
-    )
-    llm_kwargs = (
-        col_settings.llm_kwargs
-        if col_settings and col_settings.llm_kwargs is not None
-        else memory_instance.vision.llm_kwargs
-    )
-    use_clip = (
-        col_settings.use_clip
-        if col_settings and col_settings.use_clip is not None
-        else memory_instance.vision.use_clip
-    )
-    clip_model = (
-        col_settings.clip_model
-        if col_settings and col_settings.clip_model is not None
-        else memory_instance.vision.clip_model
-    )
 
     audio_col_name = f"{col_name}_audio"
     memory_instance.table.add_computed_column(
@@ -351,10 +233,11 @@ def setup_video_indexing(
         if_exists="ignore",
     )
     audio_col = getattr(memory_instance.table, audio_col_name)
-    audio_col_settings = AudioColumn(
-        chunk_params=audio_chunk_params,
-        transcription_model=transcription_model,
-        transcription_kwargs=transcription_kwargs,
+    audio_col_settings = Audio(
+        name=col_name,
+        chunk_params=col_settings.audio_chunk_params,
+        transcription_model=col_settings.transcription_model,
+        transcription_kwargs=col_settings.transcription_kwargs,
     )
     setup_audio_indexing(
         memory_instance,
@@ -373,7 +256,7 @@ def setup_video_indexing(
         memory_instance.table,
         iterator=FrameIterator.create(
             video=getattr(memory_instance.table, col_name),
-            **dataclasses.asdict(frame_params),
+            **dataclasses.asdict(col_settings.frame_params),
         ),
         if_exists="ignore",
     )
@@ -383,17 +266,22 @@ def setup_video_indexing(
         FrameView(name=col_name, table=frame_view)
     )
 
+    image_col_settings = Image(
+        name="frame",
+        provider=col_settings.provider,
+        model=col_settings.model,
+        prompt=col_settings.prompt,
+        llm_kwargs=col_settings.llm_kwargs,
+        use_clip=col_settings.use_clip,
+        clip_model=col_settings.clip_model,
+    )
+
     setup_vision_indexing(
         frame_view,
         "frame",
         embed_model,
         index_name,
-        provider,
-        model,
-        prompt,
-        llm_kwargs,
-        use_clip,
-        clip_model,
+        image_col_settings,
     )
 
 
@@ -402,20 +290,9 @@ def setup_string_indexing(
     col_name: str,
     embed_model: pxt.Function,
     index_name: str,
-    col_settings: Optional[StringColumn] = None,
+    col_settings: String,
 ) -> None:
-    use_chunking = (
-        col_settings.use_chunking
-        if col_settings and col_settings.use_chunking is not None
-        else memory_instance.text.use_chunking
-    )
-    chunk_params = (
-        col_settings.chunk_params
-        if col_settings and col_settings.chunk_params is not None
-        else memory_instance.text.chunk_params
-    )
-
-    if use_chunking:
+    if col_settings.use_chunking:
         from pixeltable.iterators import StringSplitter
 
         chunk_view_name = f"{memory_instance.table_name}_{col_name}_chunks"
@@ -427,7 +304,7 @@ def setup_string_indexing(
             chunk_view_path,
             memory_instance.table,
             iterator=StringSplitter.create(
-                text=text_source, **dataclasses.asdict(chunk_params)
+                text=text_source, **dataclasses.asdict(col_settings.chunk_params)
             ),
             if_exists="replace_force",
         )
