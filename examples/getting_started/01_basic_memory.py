@@ -1,27 +1,18 @@
 from pixelmemory import Memory
-from pixelmemory.context import String, Image
+from pixelmemory.context import Text, Video
+from pixelmemory.config import StringSplitterParams
 
 context = [
-    String(id="caption"),
-    Image(id="image"),
-    Video(id="youtube_video"),
+    Text(id="caption",  chunk_params=StringSplitterParams(limit=100)),
+    Video(id="video", chunk_params=FrameIteratorParams(fps=1)),
 ]
 
 mem = Memory(context=context)
 
-print(
-    f"Successfully created memory table with automatic text indexing at: {mem.table.memory_id}"
-)
+entry_1 = mem.Entry(caption="This is a test.")
+entry_2 = mem.Entry(caption="This is another test.")
+entry_3 = mem.Entry(caption="s3://test.mp4")
 
-mem.insert(
-    [
-        {
-            "caption": "This is a test.",
-            "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg",
-        }
-    ]
-)
+mem.add(entry_1, entry_2, entry_3)
 
-print(mem.select(mem.caption, mem.image, mem.youtube_video).collect())
-
-mem.drop()
+print(mem.select(mem.caption).collect())

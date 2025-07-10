@@ -7,7 +7,7 @@ from .context import (
     Image,
     Audio,
     Video,
-    String,
+    Text,
     Document,
 )
 from .config import (
@@ -290,7 +290,7 @@ def setup_string_indexing(
     col_name: str,
     embed_model: pxt.Function,
     index_name: str,
-    col_settings: String,
+    col_settings: Text,
 ) -> None:
     if col_settings.use_chunking:
         from pixeltable.iterators import StringSplitter

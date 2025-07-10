@@ -13,8 +13,8 @@ from .config import (
 @dataclass
 class Context:
     id: str
-    text_embedding: bool = True
-    text_embedding_model: Optional[Union[str, pxt.Function]] = None
+    embed: bool = True
+    embed_model: Optional[Union[str, pxt.Function]] = "all-mpnet-base-v2"
     index_name: Optional[str] = None
 
 
@@ -48,7 +48,7 @@ class Image(Context):
 
 
 @dataclass
-class String(Context):
+class Text(Context):
     use_chunking: bool = False
     chunk_params: StringSplitterParams = field(default_factory=StringSplitterParams)
     _pxt_type: pxt.String = pxt.String

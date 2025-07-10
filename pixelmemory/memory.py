@@ -1,5 +1,5 @@
-from typing import Dict, Any, Literal, List, Union, Optional
-from dataclasses import dataclass
+from typing import Dict, Any, Literal, List, Union, Optional, TYPE_CHECKING
+from dataclasses import dataclass, make_dataclass, asdict
 import pixeltable as pxt
 from .config import (
     ChunkView,
@@ -7,6 +7,11 @@ from .config import (
     IndexedColumn,
 )
 from .context import Context
+
+if TYPE_CHECKING:
+    from dataclasses import dataclass as _dataclass_base
+else:
+    _dataclass_base = object
 
 
 @dataclass
@@ -35,7 +40,7 @@ class Memory:
             col.id: col._pxt_type for col in self.context
         }
         self.columns_to_embed: Dict[str, Context] = {
-            col.id: col for col in self.context if col.embed
+            col.id: col for col in self.context if col.text_embedding
         }
 
         table_path = f"{self.namespace}.{self.table_name}"
@@ -52,6 +57,12 @@ class Memory:
 
         if self.columns_to_embed:
             self.setup_indexing()
+
+        self.Entry = make_dataclass(
+            "MemoryEntry",
+            [(col.id, Any) for col in self.context],
+            bases=(_dataclass_base,),
+        )
 
     def _get_embed_model(
         self, override_model: Optional[Union[str, pxt.Function]] = None
@@ -75,6 +86,34 @@ class Memory:
             col_type = self.schema[col_name]
             col_settings = self.columns_to_embed.get(col_name)
             setup_column_indexing(self, col_name, col_type, col_settings)
+
+    def add(self, *rows: "Memory.Entry") -> None:
+        """
+        Add one or more rows to the memory table.
+
+        This method supports batch insertion for efficiency, converting the provided
+        Entry instances to the dictionary format required by Pixeltable.
+
+        Args:
+            *rows: One or more instances of the dynamically generated Memory.Entry dataclass.
+
+        Raises:
+            ValueError: If no rows are provided.
+
+        Example:
+            # Single row
+            entry = self.Entry(caption="This is a test.", image_path="/path/to/image.jpg")
+            self.add(entry)
+
+            # Multiple rows (batched insert)
+            entry1 = self.Entry(caption="Test 1", image_path="/path/1.jpg")
+            entry2 = self.Entry(caption="Test 2", image_path="/path/2.jpg")
+            self.add(entry1, entry2)
+        """
+        if not rows:
+            raise ValueError("At least one row must be provided.")
+        row_dicts = [asdict(row) for row in rows]
+        self.table.insert(row_dicts)
 
     def __getattr__(self, name: str) -> Any:
         if hasattr(self.resources.main_table, name):
