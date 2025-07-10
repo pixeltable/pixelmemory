@@ -12,7 +12,7 @@ from .config import (
 
 @dataclass
 class Context:
-    name: str
+    id: str
     text_embedding: bool = True
     text_embedding_model: Optional[Union[str, pxt.Function]] = None
     index_name: Optional[str] = None

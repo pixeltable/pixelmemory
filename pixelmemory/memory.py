@@ -32,10 +32,10 @@ class Memory:
         self.if_exists = if_exists
 
         self.schema: Dict[str, pxt.ColumnType] = {
-            col.name: col._pxt_type for col in self.context
+            col.id: col._pxt_type for col in self.context
         }
         self.columns_to_embed: Dict[str, Context] = {
-            col.name: col for col in self.context if col.embed
+            col.id: col for col in self.context if col.embed
         }
 
         table_path = f"{self.namespace}.{self.table_name}"
