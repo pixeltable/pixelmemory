@@ -83,7 +83,6 @@ def create_vision_computed_column(
         )
         target_obj.add_computed_column(
             **{description_col_name: getattr(target_obj, response_col).content[0].text},
-            col_type=pxt.String,
             if_exists="ignore",
         )
 

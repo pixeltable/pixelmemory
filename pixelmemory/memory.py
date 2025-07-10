@@ -1,4 +1,4 @@
-from typing import Dict, Any, Literal, List, Union, Callable
+from typing import Dict, Any, Literal, List, Union, Callable, Optional
 from dataclasses import dataclass
 import pixeltable as pxt
 from .config import (
@@ -64,16 +64,18 @@ class Memory:
         if self.columns_to_embed:
             self.setup_indexing()
 
-    def _get_embed_model(self, override_model: Union[str, Callable] = None) -> Callable:
+    def _get_embed_model(
+        self, override_model: Optional[Union[str, pxt.Function]] = None
+    ) -> pxt.Function:
         model = override_model or self.text.embedding_model
         if isinstance(model, str):
             from pixeltable.functions.huggingface import sentence_transformer
 
             return sentence_transformer.using(model_id=model)
-        else:
-            return model
+        # We have to assume it's a pxt.Function if it's not a string
+        return model
 
-    def setup_indexing(self, columns_to_index: List[str] = None) -> None:
+    def setup_indexing(self, columns_to_index: Optional[List[str]] = None) -> None:
         from .indexing import setup_column_indexing
 
         columns_to_index = columns_to_index or list(self.columns_to_embed.keys())

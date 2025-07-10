@@ -72,7 +72,7 @@ class Document:
 
 @dataclass
 class Text:
-    embedding_model: Union[str, Callable] = "intfloat/e5-large-v2"
+    embedding_model: Union[str, pxt.Function] = "intfloat/e5-large-v2"
     index_name: str = "similarity"
     use_chunking: bool = False
     chunk_params: StringSplitterParams = field(default_factory=StringSplitterParams)
@@ -95,50 +95,50 @@ class Vision:
 
 @dataclass
 class Column:
-    embedding_model: Union[str, Callable] = None
-    index_name: str = None
+    embedding_model: Optional[Union[str, pxt.Function]] = None
+    index_name: Optional[str] = None
 
 
 @dataclass
 class AudioColumn(Column):
-    transcription_model: str = None
-    transcription_kwargs: WhisperParams = None
-    chunk_params: AudioSplitterParams = None
+    transcription_model: Optional[str] = None
+    transcription_kwargs: Optional[WhisperParams] = None
+    chunk_params: Optional[AudioSplitterParams] = None
 
 
 @dataclass
 class DocumentColumn(Column):
-    chunk_params: DocumentSplitterParams = None
+    chunk_params: Optional[DocumentSplitterParams] = None
 
 
 @dataclass
 class ImageColumn(Column):
-    provider: Literal["openai", "anthropic"] = None
-    model: str = None
-    prompt: str = None
-    llm_kwargs: Dict[str, Any] = None
-    use_clip: bool = None
-    clip_model: str = None
+    provider: Optional[Literal["openai", "anthropic"]] = None
+    model: Optional[str] = None
+    prompt: Optional[str] = None
+    llm_kwargs: Optional[Dict[str, Any]] = None
+    use_clip: Optional[bool] = None
+    clip_model: Optional[str] = None
 
 
 @dataclass
 class StringColumn(Column):
-    use_chunking: bool = None
-    chunk_params: StringSplitterParams = None
+    use_chunking: Optional[bool] = None
+    chunk_params: Optional[StringSplitterParams] = None
 
 
 @dataclass
 class VideoColumn(Column):
-    frame_params: FrameIteratorParams = None
-    transcription_model: str = None
-    transcription_kwargs: WhisperParams = None
-    audio_chunk_params: AudioSplitterParams = None
-    provider: Literal["openai", "anthropic"] = None
-    model: str = None
-    prompt: str = None
-    llm_kwargs: Dict[str, Any] = None
-    use_clip: bool = None
-    clip_model: str = None
+    frame_params: Optional[FrameIteratorParams] = None
+    transcription_model: Optional[str] = None
+    transcription_kwargs: Optional[WhisperParams] = None
+    audio_chunk_params: Optional[AudioSplitterParams] = None
+    provider: Optional[Literal["openai", "anthropic"]] = None
+    model: Optional[str] = None
+    prompt: Optional[str] = None
+    llm_kwargs: Optional[Dict[str, Any]] = None
+    use_clip: Optional[bool] = None
+    clip_model: Optional[str] = None
 
 
 class ColumnsToEmbed:

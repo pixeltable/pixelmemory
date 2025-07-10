@@ -1,6 +1,7 @@
 # indexing.py
 import pixeltable as pxt
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Optional
+import pixeltable as pxt
 import dataclasses
 from .memory import Memory
 from .config import (
@@ -20,7 +21,10 @@ from .vision import (
 
 
 def setup_column_indexing(
-    memory_instance: Memory, col_name: str, col_type: Any, col_settings: Any = None
+    memory_instance: Memory,
+    col_name: str,
+    col_type: Any,
+    col_settings: Optional[Any] = None,
 ) -> None:
     embed_model = memory_instance._get_embed_model(
         col_settings.embedding_model if col_settings else None
@@ -65,7 +69,7 @@ def setup_column_indexing(
 def setup_vision_indexing(
     target_obj: pxt.Table,
     img_col_name: str,
-    embed_model: Callable,
+    embed_model: pxt.Function,
     index_name: str,
     provider: str,
     model: str,
@@ -85,7 +89,7 @@ def setup_vision_indexing(
 
     target_obj.add_embedding_index(
         column=description_col_name,
-        index_name=index_name,
+        idx_name=index_name,
         embedding=embed_model,
         if_exists="ignore",
     )
@@ -95,7 +99,7 @@ def setup_vision_indexing(
 
         target_obj.add_embedding_index(
             column=img_col_name,
-            index_name=f"{index_name}_clip",
+            idx_name=f"{index_name}_clip",
             embedding=clip.using(model_id=clip_model),
             if_exists="ignore",
         )
@@ -104,9 +108,9 @@ def setup_vision_indexing(
 def setup_document_indexing(
     memory_instance: Memory,
     col_name: str,
-    embed_model: Callable,
+    embed_model: pxt.Function,
     index_name: str,
-    col_settings: DocumentColumn = None,
+    col_settings: Optional[DocumentColumn] = None,
 ) -> None:
     from pixeltable.iterators import DocumentSplitter
 
@@ -129,22 +133,24 @@ def setup_document_indexing(
         ),
         if_exists="replace_force",
     )
+    if not chunk_view:
+        chunk_view = pxt.get_table(chunk_view_path)
 
     memory_instance.resources.chunk_views.append(
         ChunkView(name=col_name, table=chunk_view)
     )
 
     chunk_view.add_embedding_index(
-        column="text", index_name=index_name, embedding=embed_model, if_exists="ignore"
+        column="text", idx_name=index_name, embedding=embed_model, if_exists="ignore"
     )
 
 
 def setup_image_indexing(
     memory_instance: Memory,
     col_name: str,
-    embed_model: Callable,
+    embed_model: pxt.Function,
     index_name: str,
-    col_settings: ImageColumn = None,
+    col_settings: Optional[ImageColumn] = None,
 ) -> None:
     provider = (
         col_settings.provider
@@ -194,10 +200,10 @@ def setup_image_indexing(
 def setup_audio_indexing(
     memory_instance: Memory,
     col_name: str,
-    embed_model: Callable,
+    embed_model: pxt.Function,
     index_name: str,
-    col_settings: AudioColumn = None,
-    audio_col=None,
+    col_settings: Optional[AudioColumn] = None,
+    audio_col: Optional[pxt.Column] = None,
 ) -> None:
     from pixeltable.iterators import AudioSplitter, StringSplitter
     from pixeltable.functions.openai import transcriptions
@@ -236,6 +242,8 @@ def setup_audio_indexing(
         ),
         if_exists="replace_force",
     )
+    if not audio_chunk_view:
+        audio_chunk_view = pxt.get_table(audio_chunk_view_path)
 
     transcription_col_name = f"{col_name}_transcription"
     whisper_args = {
@@ -261,22 +269,24 @@ def setup_audio_indexing(
         ),
         if_exists="replace_force",
     )
+    if not sentence_chunk_view:
+        sentence_chunk_view = pxt.get_table(sentence_view_path)
 
     memory_instance.resources.chunk_views.append(
         ChunkView(name=col_name, table=sentence_chunk_view)
     )
 
     sentence_chunk_view.add_embedding_index(
-        column="text", index_name=index_name, embedding=embed_model, if_exists="ignore"
+        column="text", idx_name=index_name, embedding=embed_model, if_exists="ignore"
     )
 
 
 def setup_video_indexing(
     memory_instance: Memory,
     col_name: str,
-    embed_model: Callable,
+    embed_model: pxt.Function,
     index_name: str,
-    col_settings: VideoColumn = None,
+    col_settings: Optional[VideoColumn] = None,
 ) -> None:
     from pixeltable.functions.video import extract_audio
     from pixeltable.iterators import FrameIterator
@@ -367,6 +377,8 @@ def setup_video_indexing(
         ),
         if_exists="ignore",
     )
+    if not frame_view:
+        frame_view = pxt.get_table(frame_view_path)
     memory_instance.resources.frame_views.append(
         FrameView(name=col_name, table=frame_view)
     )
@@ -388,9 +400,9 @@ def setup_video_indexing(
 def setup_string_indexing(
     memory_instance: Memory,
     col_name: str,
-    embed_model: Callable,
+    embed_model: pxt.Function,
     index_name: str,
-    col_settings: StringColumn = None,
+    col_settings: Optional[StringColumn] = None,
 ) -> None:
     use_chunking = (
         col_settings.use_chunking
@@ -419,6 +431,8 @@ def setup_string_indexing(
             ),
             if_exists="replace_force",
         )
+        if not chunk_view:
+            chunk_view = pxt.get_table(chunk_view_path)
 
         memory_instance.resources.chunk_views.append(
             ChunkView(name=col_name, table=chunk_view)
@@ -426,21 +440,21 @@ def setup_string_indexing(
 
         chunk_view.add_embedding_index(
             column="text",
-            index_name=index_name,
+            idx_name=index_name,
             embedding=embed_model,
             if_exists="ignore",
         )
 
         memory_instance.table.add_embedding_index(
             column=col_name,
-            index_name=f"{index_name}_direct",
+            idx_name=f"{index_name}_direct",
             embedding=embed_model,
             if_exists="ignore",
         )
     else:
         memory_instance.table.add_embedding_index(
             column=col_name,
-            index_name=index_name,
+            idx_name=index_name,
             embedding=embed_model,
             if_exists="replace_force",
         )
