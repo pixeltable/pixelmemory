@@ -1,4 +1,4 @@
-# pip install crewai langchain-openai pixelmemory
+# pip install crewai openai pixelmemory
 
 import pixeltable as pxt
 from pixelmemory import Memory
@@ -13,24 +13,33 @@ urls = [
 website_knowledge = Memory(
     namespace="crewai_rag_example",
     table_name="web_pages",
-    schema={'doc_id': pxt.Required[pxt.String], 'content': pxt.Document},
-    primary_key='doc_id',
-    columns_to_index=['content'],
-    document_iterator_kwargs={'separators': 'token_limit', 'limit': 400, 'overlap': 40},
-    if_exists="replace_force"
+    schema={"doc_id": pxt.Required[pxt.String], "content": pxt.Document},
+    primary_key="doc_id",
+    columns_to_index=["content"],
+    document_iterator_kwargs={"separators": "token_limit", "limit": 400, "overlap": 40},
+    if_exists="replace_force",
 )
+
 
 @tool
 def website_knowledge_tool(search_query: str, limit: int = 5) -> str:
     """Search for relevant information in the website knowledge."""
-    chunk_view = website_knowledge.chunk_views['content']
+    chunk_view = website_knowledge.chunk_views["content"]
     sim = chunk_view.text.similarity(search_query)
-    results = chunk_view.order_by(sim, asc=False).limit(limit).select(chunk_view.text, chunk_view.doc_id, similarity=sim).collect()
-    context = "\n\n".join([
-        f"Source: {r['doc_id']}\nContent: {r['text']}\nSimilarity: {r['similarity']:.4f}"
-        for r in results
-    ])
+    results = (
+        chunk_view.order_by(sim, asc=False)
+        .limit(limit)
+        .select(chunk_view.text, chunk_view.doc_id, similarity=sim)
+        .collect()
+    )
+    context = "\n\n".join(
+        [
+            f"Source: {r['doc_id']}\nContent: {r['text']}\nSimilarity: {r['similarity']:.4f}"
+            for r in results
+        ]
+    )
     return context
+
 
 researcher = Agent(
     role="AI Research Analyst",
@@ -60,7 +69,7 @@ crew = Crew(
 )
 
 # Add knowledge to memory
-data_to_insert = [{'doc_id': url, 'content': url} for url in urls]
+data_to_insert = [{"doc_id": url, "content": url} for url in urls]
 website_knowledge.insert(data_to_insert)
 
 # Kickoff crew

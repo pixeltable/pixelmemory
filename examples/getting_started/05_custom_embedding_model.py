@@ -7,7 +7,7 @@ mem = Memory(
     schema=schema,
     columns_to_index=["text"],
     text_embedding_model="all-MiniLM-L6-v2",
-    if_exists="replace_force"
+    if_exists="replace_force",
 )
 
 mem.insert([{"text": "Hello, world!"}])

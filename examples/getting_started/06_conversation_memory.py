@@ -9,7 +9,7 @@ schema = {
     "timestamp": pxt.String,
     "conversation_id": pxt.String,
     "intent": pxt.String,
-    "sentiment": pxt.String
+    "sentiment": pxt.String,
 }
 
 mem = Memory(
@@ -17,16 +17,56 @@ mem = Memory(
     table_name="chat_history",
     schema=schema,
     columns_to_index=["message"],
-    if_exists="replace"
+    if_exists="replace",
 )
 
 # Store conversation history
 conversations = [
-    {"user_id": "user_123", "message": "I need help with Python coding", "role": "user", "timestamp": "2024-01-15T10:00:00", "conversation_id": "conv_001", "intent": "technical_help", "sentiment": "neutral"},
-    {"user_id": "agent", "message": "I'd be happy to help you with Python! What specific topic are you working on?", "role": "assistant", "timestamp": "2024-01-15T10:00:30", "conversation_id": "conv_001", "intent": "assistance", "sentiment": "positive"},
-    {"user_id": "user_123", "message": "How do I handle exceptions in Python?", "role": "user", "timestamp": "2024-01-15T10:01:00", "conversation_id": "conv_001", "intent": "technical_help", "sentiment": "neutral"},
-    {"user_id": "user_456", "message": "What's the weather like today?", "role": "user", "timestamp": "2024-01-15T11:00:00", "conversation_id": "conv_002", "intent": "weather_query", "sentiment": "neutral"},
-    {"user_id": "agent", "message": "I don't have access to real-time weather data, but I can help you find weather information sources.", "role": "assistant", "timestamp": "2024-01-15T11:00:30", "conversation_id": "conv_002", "intent": "information", "sentiment": "helpful"}
+    {
+        "user_id": "user_123",
+        "message": "I need help with Python coding",
+        "role": "user",
+        "timestamp": "2024-01-15T10:00:00",
+        "conversation_id": "conv_001",
+        "intent": "technical_help",
+        "sentiment": "neutral",
+    },
+    {
+        "user_id": "agent",
+        "message": "I'd be happy to help you with Python! What specific topic are you working on?",
+        "role": "assistant",
+        "timestamp": "2024-01-15T10:00:30",
+        "conversation_id": "conv_001",
+        "intent": "assistance",
+        "sentiment": "positive",
+    },
+    {
+        "user_id": "user_123",
+        "message": "How do I handle exceptions in Python?",
+        "role": "user",
+        "timestamp": "2024-01-15T10:01:00",
+        "conversation_id": "conv_001",
+        "intent": "technical_help",
+        "sentiment": "neutral",
+    },
+    {
+        "user_id": "user_456",
+        "message": "What's the weather like today?",
+        "role": "user",
+        "timestamp": "2024-01-15T11:00:00",
+        "conversation_id": "conv_002",
+        "intent": "weather_query",
+        "sentiment": "neutral",
+    },
+    {
+        "user_id": "agent",
+        "message": "I don't have access to real-time weather data, but I can help you find weather information sources.",
+        "role": "assistant",
+        "timestamp": "2024-01-15T11:00:30",
+        "conversation_id": "conv_002",
+        "intent": "information",
+        "sentiment": "helpful",
+    },
 ]
 
 mem.insert(conversations)
@@ -81,8 +121,8 @@ current_intent = "technical_help"
 # Get user's conversation history + similar past interactions
 context_query = (
     mem.where(
-        (mem.user_id == current_user) | 
-        ((mem.intent == current_intent) & (mem.role == "assistant"))
+        (mem.user_id == current_user)
+        | ((mem.intent == current_intent) & (mem.role == "assistant"))
     )
     .select(mem.role, mem.message, mem.intent)
     .limit(10)

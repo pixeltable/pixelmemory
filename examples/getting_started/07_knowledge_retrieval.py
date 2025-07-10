@@ -9,7 +9,7 @@ schema = {
     "category": pxt.String,
     "confidence": pxt.Float,
     "last_accessed": pxt.String,
-    "keywords": pxt.Json
+    "keywords": pxt.Json,
 }
 
 mem = Memory(
@@ -17,7 +17,7 @@ mem = Memory(
     table_name="facts_and_procedures",
     schema=schema,
     columns_to_index=["content", "topic"],
-    if_exists="replace"
+    if_exists="replace",
 )
 
 # Store knowledge base entries for agent retrieval
@@ -29,7 +29,7 @@ knowledge_entries = [
         "category": "programming",
         "confidence": 0.95,
         "last_accessed": "2024-01-15T10:00:00",
-        "keywords": ["python", "exceptions", "error handling", "try-except"]
+        "keywords": ["python", "exceptions", "error handling", "try-except"],
     },
     {
         "topic": "API Rate Limiting",
@@ -38,7 +38,7 @@ knowledge_entries = [
         "category": "api_design",
         "confidence": 0.88,
         "last_accessed": "2024-01-15T09:30:00",
-        "keywords": ["api", "rate limiting", "backoff", "retry logic"]
+        "keywords": ["api", "rate limiting", "backoff", "retry logic"],
     },
     {
         "topic": "Database Connection Pooling",
@@ -47,8 +47,8 @@ knowledge_entries = [
         "category": "database",
         "confidence": 0.92,
         "last_accessed": "2024-01-14T16:20:00",
-        "keywords": ["database", "connection pool", "performance", "optimization"]
-    }
+        "keywords": ["database", "connection pool", "performance", "optimization"],
+    },
 ]
 
 mem.insert(knowledge_entries)
@@ -61,12 +61,7 @@ print("Relevant knowledge retrieval:")
 similarity = mem.content.similarity(user_question)
 relevant_knowledge = (
     mem.order_by(similarity, asc=False)
-    .select(
-        mem.topic,
-        mem.content,
-        mem.confidence,
-        relevance_score=similarity
-    )
+    .select(mem.topic, mem.content, mem.confidence, relevance_score=similarity)
     .limit(2)
     .collect()
 )
@@ -94,7 +89,7 @@ multi_field_results = (
         mem.category,
         topic_relevance=topic_match,
         content_relevance=content_match,
-        combined_score=(topic_match + content_match) / 2
+        combined_score=(topic_match + content_match) / 2,
     )
     .order_by((topic_match + content_match) / 2, asc=False)
     .limit(3)
@@ -112,18 +107,19 @@ high_confidence = (
 )
 print(high_confidence)
 
+
 # Agent workflow: Retrieve context for generating response
 def get_agent_context(user_query, category_filter=None, min_confidence=0.8):
     """Retrieve relevant context for agent response generation"""
     print(f"\nAgent context retrieval for: '{user_query}'")
-    
+
     # Build query with semantic search and filters
     similarity = mem.content.similarity(user_query)
     query = mem.where(mem.confidence >= min_confidence)
-    
+
     if category_filter:
         query = query.where(mem.category == category_filter)
-    
+
     context = (
         query.order_by(similarity, asc=False)
         .select(
@@ -131,13 +127,14 @@ def get_agent_context(user_query, category_filter=None, min_confidence=0.8):
             mem.content,
             mem.source,
             mem.confidence,
-            similarity_score=similarity
+            similarity_score=similarity,
         )
         .limit(3)
         .collect()
     )
-    
+
     return context
+
 
 # Example agent context retrieval
 context = get_agent_context("API integration best practices", min_confidence=0.85)

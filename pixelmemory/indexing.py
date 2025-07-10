@@ -1,255 +1,437 @@
-import logging
+# indexing.py
 import pixeltable as pxt
-from pixeltable.functions.huggingface import sentence_transformer
-from .vision import get_vision_function, prepare_vision_args, create_vision_computed_column
+from typing import Any, Callable, Dict
+import dataclasses
+from .memory import Memory
+from .config import (
+    ImageColumn,
+    AudioColumn,
+    VideoColumn,
+    StringColumn,
+    DocumentColumn,
+    ChunkView,
+    FrameView,
+)
+from .vision import (
+    get_vision_function,
+    prepare_vision_args,
+    create_vision_computed_column,
+)
 
-logger = logging.getLogger(__name__)
 
-def initialize_automatic_indexing(memory_instance) -> None:
-    if not memory_instance.columns_to_index:
-        return
-    
-    memory_instance.logger.info("Initializing automatic indexing.")
-    
-    if isinstance(memory_instance.text_embedding_model, str):
-        embed_model_instance = sentence_transformer.using(model_id=memory_instance.text_embedding_model)
-    else:
-        embed_model_instance = memory_instance.text_embedding_model
+def setup_column_indexing(
+    memory_instance: Memory, col_name: str, col_type: Any, col_settings: Any = None
+) -> None:
+    embed_model = memory_instance._get_embed_model(
+        col_settings.embedding_model if col_settings else None
+    )
+    idx_name = (
+        col_settings.idx_name
+        if col_settings and col_settings.idx_name is not None
+        else memory_instance.text.idx_name
+    )
 
-    for col_name in memory_instance.columns_to_index:
-        if col_name in memory_instance.schema:
-            col_type = memory_instance.schema[col_name]
-            memory_instance.logger.info(f"Setting up indexing for column '{col_name}' of type {col_type}.")
-            
-            if col_type == pxt.Image:
-                setup_image_indexing(memory_instance, col_name, embed_model_instance)
-            
-            elif col_type == pxt.Audio:
-                setup_audio_indexing(memory_instance, col_name, embed_model_instance)
+    if col_type == pxt.Image:
+        setup_image_indexing(
+            memory_instance, col_name, embed_model, idx_name, col_settings
+        )
 
-            elif col_type == pxt.Video:
-                setup_video_indexing(memory_instance, col_name, embed_model_instance)
-            
-            elif col_type == pxt.String:
-                if memory_instance.use_sentence_chunking:
-                    setup_string_sentence_chunking(memory_instance, col_name, embed_model_instance)
-                else:
-                    memory_instance.logger.info(f"Adding string embedding index to '{col_name}'.")
-                    memory_instance.table.add_embedding_index(
-                        column=col_name, 
-                        idx_name=memory_instance.idx_name, 
-                        embedding=embed_model_instance, 
-                        if_exists="replace_force"
-                    )
-            
-            elif col_type == pxt.Document:
-                setup_document_indexing(memory_instance, col_name, embed_model_instance)
+    elif col_type == pxt.Audio:
+        setup_audio_indexing(
+            memory_instance,
+            col_name,
+            embed_model,
+            idx_name,
+            col_settings,
+            audio_col=None,
+        )
 
-    memory_instance.logger.info("Automatic indexing initialization complete.")
+    elif col_type == pxt.Video:
+        setup_video_indexing(
+            memory_instance, col_name, embed_model, idx_name, col_settings
+        )
 
-def setup_document_indexing(memory_instance, col_name: str, embed_model_instance) -> None:
-    memory_instance.logger.info(f"Setting up document indexing for column '{col_name}'.")
+    elif col_type == pxt.String:
+        setup_string_indexing(
+            memory_instance, col_name, embed_model, idx_name, col_settings
+        )
+
+    elif col_type == pxt.Document:
+        setup_document_indexing(
+            memory_instance, col_name, embed_model, idx_name, col_settings
+        )
+
+
+def setup_vision_indexing(
+    target_obj: pxt.Table,
+    img_col_name: str,
+    embed_model: Callable,
+    idx_name: str,
+    provider: str,
+    model: str,
+    prompt: str,
+    kwargs: Dict[str, Any],
+    use_clip: bool,
+    clip_model: str,
+) -> None:
+    vision_func = get_vision_function(provider)
+    vision_args = prepare_vision_args(
+        provider, model, prompt, kwargs, img_col_name, target_obj
+    )
+
+    description_col_name = create_vision_computed_column(
+        provider, img_col_name, vision_func, vision_args, target_obj
+    )
+
+    target_obj.add_embedding_index(
+        column=description_col_name,
+        idx_name=idx_name,
+        embedding=embed_model,
+        if_exists="ignore",
+    )
+
+    if use_clip:
+        from pixeltable.functions.huggingface import clip
+
+        target_obj.add_embedding_index(
+            column=img_col_name,
+            idx_name=f"{idx_name}_clip",
+            embedding=clip.using(model_id=clip_model),
+            if_exists="ignore",
+        )
+
+
+def setup_document_indexing(
+    memory_instance: Memory,
+    col_name: str,
+    embed_model: Callable,
+    idx_name: str,
+    col_settings: DocumentColumn = None,
+) -> None:
     from pixeltable.iterators import DocumentSplitter
+
+    chunk_params = (
+        col_settings.chunk_params
+        if col_settings and col_settings.chunk_params is not None
+        else memory_instance.document.chunk_params
+    )
 
     chunk_view_name = f"{memory_instance.table_name}_{col_name}_chunks"
     chunk_view_path = f"{memory_instance.namespace}.{chunk_view_name}"
-    
+
     document_source = getattr(memory_instance.table, col_name)
 
-    memory_instance.logger.info(f"Creating document chunk view: {chunk_view_path}")
-    
-    if not memory_instance.document_iterator_kwargs:
-        memory_instance.document_iterator_kwargs = {'separators': 'token_limit', 'limit': 300}
-        
     chunk_view = pxt.create_view(
         chunk_view_path,
         memory_instance.table,
-        iterator=DocumentSplitter.create(document=document_source, **memory_instance.document_iterator_kwargs),
-        if_exists="replace_force"
+        iterator=DocumentSplitter.create(
+            document=document_source, **dataclasses.asdict(chunk_params)
+        ),
+        if_exists="replace_force",
     )
-    
-    memory_instance.chunk_views[col_name] = chunk_view
 
-    memory_instance.logger.info("Adding embedding index to 'text' column of document chunk view.")
+    memory_instance.resources.chunk_views.append(
+        ChunkView(name=col_name, table=chunk_view)
+    )
+
     chunk_view.add_embedding_index(
-        column="text",
-        idx_name=memory_instance.idx_name,
-        embedding=embed_model_instance,
-        if_exists="ignore"
+        column="text", idx_name=idx_name, embedding=embed_model, if_exists="ignore"
     )
-    memory_instance.logger.info(f"Document indexing setup for '{col_name}' complete.")
 
-def setup_image_indexing(memory_instance, col_name: str, embed_model_instance) -> None:
-    memory_instance.logger.info(f"Setting up image indexing for column '{col_name}'.")
-    
-    vision_func = get_vision_function(memory_instance)
-    vision_args = prepare_vision_args(memory_instance, col_name, memory_instance.table)
-    
-    description_col_name = create_vision_computed_column(
-        memory_instance, col_name, vision_func, vision_args, memory_instance.table
-    )
-    memory_instance.logger.info(f"Created vision description column: '{description_col_name}'.")
-    
-    memory_instance.logger.info(f"Adding embedding index to '{description_col_name}'.")
-    memory_instance.table.add_embedding_index(
-        column=description_col_name,
-        idx_name=memory_instance.idx_name,
-        embedding=embed_model_instance,
-        if_exists="ignore"
-    )
-    
-    if memory_instance.use_clip:
-        from pixeltable.functions.huggingface import clip
-        memory_instance.logger.info(f"Adding CLIP embedding index to '{col_name}'.")
-        memory_instance.table.add_embedding_index(
-            column=col_name,
-            idx_name=f"{memory_instance.idx_name}_clip",
-            embedding=clip.using(model_id=memory_instance.clip_model),
-            if_exists="ignore"
-        )
-    memory_instance.logger.info(f"Image indexing setup for '{col_name}' complete.")
 
-def setup_audio_indexing(memory_instance, col_name: str, embed_model_instance, audio_col=None) -> None:
-    memory_instance.logger.info(f"Setting up audio indexing for column '{col_name}'.")
+def setup_image_indexing(
+    memory_instance: Memory,
+    col_name: str,
+    embed_model: Callable,
+    idx_name: str,
+    col_settings: ImageColumn = None,
+) -> None:
+    provider = (
+        col_settings.provider
+        if col_settings and col_settings.provider is not None
+        else memory_instance.vision.provider
+    )
+    model = (
+        col_settings.model
+        if col_settings and col_settings.model is not None
+        else memory_instance.vision.model
+    )
+    prompt = (
+        col_settings.prompt
+        if col_settings and col_settings.prompt is not None
+        else memory_instance.vision.prompt
+    )
+    kwargs = (
+        col_settings.kwargs
+        if col_settings and col_settings.kwargs is not None
+        else memory_instance.vision.kwargs
+    )
+    use_clip = (
+        col_settings.use_clip
+        if col_settings and col_settings.use_clip is not None
+        else memory_instance.vision.use_clip
+    )
+    clip_model = (
+        col_settings.clip_model
+        if col_settings and col_settings.clip_model is not None
+        else memory_instance.vision.clip_model
+    )
+
+    setup_vision_indexing(
+        memory_instance.table,
+        col_name,
+        embed_model,
+        idx_name,
+        provider,
+        model,
+        prompt,
+        kwargs,
+        use_clip,
+        clip_model,
+    )
+
+
+def setup_audio_indexing(
+    memory_instance: Memory,
+    col_name: str,
+    embed_model: Callable,
+    idx_name: str,
+    col_settings: AudioColumn = None,
+    audio_col=None,
+) -> None:
     from pixeltable.iterators import AudioSplitter, StringSplitter
     from pixeltable.functions.openai import transcriptions
 
+    chunk_params = (
+        col_settings.chunk_params
+        if col_settings and col_settings.chunk_params is not None
+        else memory_instance.audio.chunk_params
+    )
+    transcription_model = (
+        col_settings.transcription_model
+        if col_settings and col_settings.transcription_model is not None
+        else memory_instance.audio.transcription_model
+    )
+    transcription_kwargs = (
+        col_settings.transcription_kwargs
+        if col_settings and col_settings.transcription_kwargs is not None
+        else memory_instance.audio.transcription_kwargs
+    )
+
     audio_chunk_view_name = f"{memory_instance.table_name}_{col_name}_audio_chunks"
     audio_chunk_view_path = f"{memory_instance.namespace}.{audio_chunk_view_name}"
-    
-    audio_source = audio_col if audio_col is not None else getattr(memory_instance.table, col_name)
 
-    memory_instance.logger.info(f"Creating audio chunk view: {audio_chunk_view_path}")
+    audio_source = (
+        audio_col if audio_col is not None else getattr(memory_instance.table, col_name)
+    )
+
     audio_chunk_view = pxt.create_view(
         audio_chunk_view_path,
         memory_instance.table,
-        iterator=AudioSplitter.create(audio=audio_source, **memory_instance.audio_iterator_kwargs),
-        if_exists="replace_force"
+        iterator=AudioSplitter.create(
+            audio=audio_source, **dataclasses.asdict(chunk_params)
+        ),
+        if_exists="replace_force",
     )
-    
+
     transcription_col_name = f"{col_name}_transcription"
     whisper_args = {
-        "audio": audio_chunk_view.audio_chunk, 
-        "model": memory_instance.transcription_model, 
-        **memory_instance.transcription_kwargs
+        "audio": audio_chunk_view.audio_chunk,
+        "model": transcription_model,
+        **transcription_kwargs,
     }
-    
-    memory_instance.logger.info(f"Adding transcription column '{transcription_col_name}' to audio chunk view.")
+
     audio_chunk_view.add_computed_column(
-        **{transcription_col_name: transcriptions(**whisper_args)},
-        if_exists="ignore"
+        **{transcription_col_name: transcriptions(**whisper_args)}, if_exists="ignore"
     )
-    
+
     sentence_view_name = f"{memory_instance.table_name}_{col_name}_sentence_chunks"
     sentence_view_path = f"{memory_instance.namespace}.{sentence_view_name}"
-    
+
     transcription_text_col = getattr(audio_chunk_view, transcription_col_name).text
-    
-    memory_instance.logger.info(f"Creating sentence chunk view: {sentence_view_path}")
+
     sentence_chunk_view = pxt.create_view(
         sentence_view_path,
         audio_chunk_view,
-        iterator=StringSplitter.create(text=transcription_text_col, separators="sentence"),
-        if_exists="replace_force"
+        iterator=StringSplitter.create(
+            text=transcription_text_col, separators="sentence"
+        ),
+        if_exists="replace_force",
     )
-    
-    memory_instance.chunk_views[col_name] = sentence_chunk_view
 
-    memory_instance.logger.info("Adding embedding index to 'text' column of sentence chunk view.")
+    memory_instance.resources.chunk_views.append(
+        ChunkView(name=col_name, table=sentence_chunk_view)
+    )
+
     sentence_chunk_view.add_embedding_index(
-        column="text",
-        idx_name=memory_instance.idx_name,
-        embedding=embed_model_instance,
-        if_exists="ignore"
+        column="text", idx_name=idx_name, embedding=embed_model, if_exists="ignore"
     )
-    memory_instance.logger.info(f"Audio indexing setup for '{col_name}' complete.")
 
-def setup_video_indexing(memory_instance, col_name: str, embed_model_instance) -> None:
-    memory_instance.logger.info(f"Setting up video indexing for column '{col_name}'.")
+
+def setup_video_indexing(
+    memory_instance: Memory,
+    col_name: str,
+    embed_model: Callable,
+    idx_name: str,
+    col_settings: VideoColumn = None,
+) -> None:
     from pixeltable.functions.video import extract_audio
     from pixeltable.iterators import FrameIterator
 
+    frame_params = (
+        col_settings.frame_params
+        if col_settings and col_settings.frame_params is not None
+        else memory_instance.video.frame_params
+    )
+    audio_chunk_params = (
+        col_settings.audio_chunk_params
+        if col_settings and col_settings.audio_chunk_params is not None
+        else memory_instance.audio.chunk_params
+    )
+    transcription_model = (
+        col_settings.transcription_model
+        if col_settings and col_settings.transcription_model is not None
+        else memory_instance.audio.transcription_model
+    )
+    transcription_kwargs = (
+        col_settings.transcription_kwargs
+        if col_settings and col_settings.transcription_kwargs is not None
+        else memory_instance.audio.transcription_kwargs
+    )
+    provider = (
+        col_settings.provider
+        if col_settings and col_settings.provider is not None
+        else memory_instance.vision.provider
+    )
+    model = (
+        col_settings.model
+        if col_settings and col_settings.model is not None
+        else memory_instance.vision.model
+    )
+    prompt = (
+        col_settings.prompt
+        if col_settings and col_settings.prompt is not None
+        else memory_instance.vision.prompt
+    )
+    kwargs = (
+        col_settings.kwargs
+        if col_settings and col_settings.kwargs is not None
+        else memory_instance.vision.kwargs
+    )
+    use_clip = (
+        col_settings.use_clip
+        if col_settings and col_settings.use_clip is not None
+        else memory_instance.vision.use_clip
+    )
+    clip_model = (
+        col_settings.clip_model
+        if col_settings and col_settings.clip_model is not None
+        else memory_instance.vision.clip_model
+    )
+
     audio_col_name = f"{col_name}_audio"
-    memory_instance.logger.info(f"Extracting audio to column '{audio_col_name}'.")
     memory_instance.table.add_computed_column(
         **{audio_col_name: extract_audio(getattr(memory_instance.table, col_name))},
-        if_exists="ignore"
+        if_exists="ignore",
     )
-    setup_audio_indexing(memory_instance, col_name, embed_model_instance, audio_col=getattr(memory_instance.table, audio_col_name))
+    audio_col = getattr(memory_instance.table, audio_col_name)
+    audio_col_settings = AudioColumn(
+        chunk_params=audio_chunk_params,
+        transcription_model=transcription_model,
+        transcription_kwargs=transcription_kwargs,
+    )
+    setup_audio_indexing(
+        memory_instance,
+        col_name,
+        embed_model,
+        idx_name,
+        audio_col_settings,
+        audio_col=audio_col,
+    )
 
     frame_view_name = f"{memory_instance.table_name}_{col_name}_frames"
     frame_view_path = f"{memory_instance.namespace}.{frame_view_name}"
-    
-    memory_instance.logger.info(f"Creating frame view: {frame_view_path}")
+
     frame_view = pxt.create_view(
         frame_view_path,
         memory_instance.table,
-        iterator=FrameIterator.create(video=getattr(memory_instance.table, col_name), **memory_instance.video_iterator_kwargs),
-        if_exists="ignore"
+        iterator=FrameIterator.create(
+            video=getattr(memory_instance.table, col_name),
+            **dataclasses.asdict(frame_params),
+        ),
+        if_exists="ignore",
     )
-    memory_instance.frame_views[col_name] = frame_view
-    
-    vision_func = get_vision_function(memory_instance)
-    vision_args = prepare_vision_args(memory_instance, 'frame', frame_view)
-    description_col_name = create_vision_computed_column(
-        memory_instance, 'frame', vision_func, vision_args, frame_view
+    memory_instance.resources.frame_views.append(
+        FrameView(name=col_name, table=frame_view)
     )
-    memory_instance.logger.info(f"Created frame description column: '{description_col_name}'.")
-    
-    memory_instance.logger.info(f"Adding embedding index to '{description_col_name}'.")
-    frame_view.add_embedding_index(
-        column=description_col_name,
-        idx_name=memory_instance.idx_name,
-        embedding=embed_model_instance,
-        if_exists="ignore"
+
+    setup_vision_indexing(
+        frame_view,
+        "frame",
+        embed_model,
+        idx_name,
+        provider,
+        model,
+        prompt,
+        kwargs,
+        use_clip,
+        clip_model,
     )
-    
-    if memory_instance.use_clip:
-        from pixeltable.functions.huggingface import clip
-        memory_instance.logger.info("Adding CLIP embedding index to 'frame' column of frame view.")
-        frame_view.add_embedding_index(
-            column='frame',
-            idx_name=f"{memory_instance.idx_name}_clip",
-            embedding=clip.using(model_id=memory_instance.clip_model),
-            if_exists="ignore"
+
+
+def setup_string_indexing(
+    memory_instance: Memory,
+    col_name: str,
+    embed_model: Callable,
+    idx_name: str,
+    col_settings: StringColumn = None,
+) -> None:
+    use_chunking = (
+        col_settings.use_chunking
+        if col_settings and col_settings.use_chunking is not None
+        else memory_instance.text.use_chunking
+    )
+    chunk_params = (
+        col_settings.chunk_params
+        if col_settings and col_settings.chunk_params is not None
+        else memory_instance.text.chunk_params
+    )
+
+    if use_chunking:
+        from pixeltable.iterators import StringSplitter
+
+        chunk_view_name = f"{memory_instance.table_name}_{col_name}_chunks"
+        chunk_view_path = f"{memory_instance.namespace}.{chunk_view_name}"
+
+        text_source = getattr(memory_instance.table, col_name)
+
+        chunk_view = pxt.create_view(
+            chunk_view_path,
+            memory_instance.table,
+            iterator=StringSplitter.create(
+                text=text_source, **dataclasses.asdict(chunk_params)
+            ),
+            if_exists="replace_force",
         )
-    memory_instance.logger.info(f"Video indexing setup for '{col_name}' complete.")
 
-def setup_string_sentence_chunking(memory_instance, col_name: str, embed_model_instance) -> None:
-    memory_instance.logger.info(f"Setting up sentence chunking for string column '{col_name}'.")
-    from pixeltable.iterators import StringSplitter
+        memory_instance.resources.chunk_views.append(
+            ChunkView(name=col_name, table=chunk_view)
+        )
 
-    sentence_view_name = f"{memory_instance.table_name}_{col_name}_sentence_chunks"
-    sentence_view_path = f"{memory_instance.namespace}.{sentence_view_name}"
-    
-    text_source = getattr(memory_instance.table, col_name)
-    
-    memory_instance.logger.info(f"Creating sentence chunk view: {sentence_view_path}")
-    sentence_chunk_view = pxt.create_view(
-        sentence_view_path,
-        memory_instance.table,
-        iterator=StringSplitter.create(text=text_source),
-        if_exists="replace_force"
-    )
-    
-    # Store the chunk view for later access
-    memory_instance.chunk_views[col_name] = sentence_chunk_view
+        chunk_view.add_embedding_index(
+            column="text", idx_name=idx_name, embedding=embed_model, if_exists="ignore"
+        )
 
-    memory_instance.logger.info("Adding embedding index to 'text' column of sentence chunk view.")
-    sentence_chunk_view.add_embedding_index(
-        column="text",
-        idx_name=memory_instance.idx_name,
-        embedding=embed_model_instance,
-        if_exists="ignore"
-    )
-    
-    # Also add a direct embedding index to the original string column for flexibility
-    memory_instance.logger.info(f"Adding direct embedding index to original string column '{col_name}'.")
-    memory_instance.table.add_embedding_index(
-        column=col_name,
-        idx_name=f"{memory_instance.idx_name}_direct",
-        embedding=embed_model_instance,
-        if_exists="ignore"
-    )
-    
-    memory_instance.logger.info(f"String sentence chunking setup for '{col_name}' complete.")
+        memory_instance.table.add_embedding_index(
+            column=col_name,
+            idx_name=f"{idx_name}_direct",
+            embedding=embed_model,
+            if_exists="ignore",
+        )
+    else:
+        memory_instance.table.add_embedding_index(
+            column=col_name,
+            idx_name=idx_name,
+            embedding=embed_model,
+            if_exists="replace_force",
+        )

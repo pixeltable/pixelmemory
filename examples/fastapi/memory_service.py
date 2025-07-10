@@ -13,6 +13,7 @@ app = FastAPI(
 
 # --- Pydantic Models for Request/Response ---
 
+
 class CreateMemoryRequest(BaseModel):
     namespace: str
     table_name: str
@@ -21,8 +22,10 @@ class CreateMemoryRequest(BaseModel):
     if_exists: Optional[str] = "ignore"
     primary_key: Optional[str] = None
 
+
 class AddItemsRequest(BaseModel):
     items: List[Dict[str, Any]]
+
 
 class MemoryInfoResponse(BaseModel):
     namespace: str
@@ -31,21 +34,26 @@ class MemoryInfoResponse(BaseModel):
     columns_to_index: List[str]
     metadata: Dict[str, Any]
 
+
 # A simple cache for initialized Memory objects
 memory_cache: Dict[str, Memory] = {}
+
 
 def get_memory(namespace: str, table_name: str) -> Memory:
     """Helper to get a Memory instance, caching it for efficiency."""
     cache_key = f"{namespace}.{table_name}"
     if cache_key in memory_cache:
         return memory_cache[cache_key]
-    
+
     try:
         mem = Memory(namespace=namespace, table_name=table_name)
         memory_cache[cache_key] = mem
         return mem
     except Exception as e:
-        raise HTTPException(status_code=404, detail=f"Memory '{cache_key}' not found: {e}")
+        raise HTTPException(
+            status_code=404, detail=f"Memory '{cache_key}' not found: {e}"
+        )
+
 
 def pxt_type_from_string(type_str: str) -> pxt.ColumnType:
     """Converts a string to a pixeltable type."""
@@ -68,6 +76,7 @@ def pxt_type_from_string(type_str: str) -> pxt.ColumnType:
 
 # --- API Endpoints ---
 
+
 @app.post("/memories", status_code=201)
 def create_memory(req: CreateMemoryRequest):
     """
@@ -75,17 +84,21 @@ def create_memory(req: CreateMemoryRequest):
     """
     try:
         # Convert string schema to pixeltable types
-        pxt_schema = {col: pxt_type_from_string(type_str) for col, type_str in req.schema.items()}
-        
+        pxt_schema = {
+            col: pxt_type_from_string(type_str) for col, type_str in req.schema.items()
+        }
+
         Memory(
             namespace=req.namespace,
             table_name=req.table_name,
             schema=pxt_schema,
             columns_to_index=req.columns_to_index,
             if_exists=req.if_exists,
-            primary_key=req.primary_key
+            primary_key=req.primary_key,
         )
-        return {"message": f"Memory '{req.namespace}.{req.table_name}' created successfully."}
+        return {
+            "message": f"Memory '{req.namespace}.{req.table_name}' created successfully."
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create memory: {e}")
 
@@ -117,29 +130,32 @@ def search_items(
     Searches and retrieves items from a memory.
     """
     mem = get_memory(namespace, table_name)
-    
+
     try:
         q = mem
-        
+
         # Apply semantic search if query and search_column are provided
         if query and search_column:
             if search_column not in mem.schema:
-                raise HTTPException(status_code=400, detail=f"Search column '{search_column}' not in schema.")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Search column '{search_column}' not in schema.",
+                )
             similarity = getattr(mem, search_column).similarity(query)
             q = q.order_by(similarity, asc=False)
-        
+
         # Apply filter expression
         if filter_expression:
             q = q.where(pxt.expr(filter_expression))
-            
+
         # Apply select columns
         if select:
-            select_cols = [col.strip() for col in select.split(',')]
+            select_cols = [col.strip() for col in select.split(",")]
             q = q.select(*select_cols)
-            
+
         # Apply limit
         results = q.limit(limit).collect()
-        
+
         # Convert results to a list of dicts for JSON response
         return [{k: v for k, v in row.items()} for row in results]
 
@@ -158,16 +174,18 @@ def list_memories(namespace: Optional[str] = None):
         # Here, we list directories in the .pixeltable path.
         from pathlib import Path
         import os
-        
+
         pxt_dir = Path(os.environ.get("PIXELTABLE_HOME", Path.home() / ".pixeltable"))
         if not pxt_dir.exists():
             return []
-            
+
         tables = []
         if namespace:
             ns_path = pxt_dir / namespace
             if ns_path.exists():
-                tables = [f"{namespace}.{d.name}" for d in ns_path.iterdir() if d.is_dir()]
+                tables = [
+                    f"{namespace}.{d.name}" for d in ns_path.iterdir() if d.is_dir()
+                ]
         else:
             for ns_dir in pxt_dir.iterdir():
                 if ns_dir.is_dir():
@@ -191,8 +209,10 @@ def get_memory_info(namespace: str, table_name: str):
         return {
             "namespace": namespace,
             "table_name": table_name,
-            "schema": metadata['schema'],
-            "columns_to_index": [col['name'] for col in metadata['cols'] if col.get('is_indexed')],
+            "schema": metadata["schema"],
+            "columns_to_index": [
+                col["name"] for col in metadata["cols"] if col.get("is_indexed")
+            ],
             "metadata": metadata,
         }
     except Exception as e:

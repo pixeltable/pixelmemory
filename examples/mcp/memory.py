@@ -36,6 +36,7 @@ task_mem = Memory(
 
 mcp = FastMCP()
 
+
 # --- Agentic Tool for Task Management ---
 @mcp.tool()
 def manage_tasks(
@@ -62,34 +63,38 @@ def manage_tasks(
         return f"Task added with ID: {new_task_id}"
 
     elif action == "list":
-        tasks = task_mem.select(
-            task_mem.task_id,
-            task_mem.description,
-            task_mem.status,
-            task_mem.updated_at
-        ).order_by(task_mem.updated_at, asc=False).collect()
-        
+        tasks = (
+            task_mem.select(
+                task_mem.task_id,
+                task_mem.description,
+                task_mem.status,
+                task_mem.updated_at,
+            )
+            .order_by(task_mem.updated_at, asc=False)
+            .collect()
+        )
+
         if not tasks:
             return "No tasks found."
-            
+
         task_list = [{k: v for k, v in task.items()} for task in tasks]
         return json.dumps(task_list, indent=2, default=str)
 
     elif action == "update":
         if not task_id or not status:
             return "Error: task_id and status are required for 'update' action."
-        
+
         original_task = task_mem.where(task_mem.task_id == task_id).collect()
         if not original_task:
             return f"Error: Task with ID '{task_id}' not found."
-        
+
         task_mem.delete(task_mem.task_id == task_id)
-        
+
         updated_record = dict(original_task[0])
-        updated_record['status'] = status
-        updated_record['updated_at'] = now
+        updated_record["status"] = status
+        updated_record["updated_at"] = now
         task_mem.insert([updated_record])
-        
+
         return f"Task '{task_id}' updated to status '{status}'."
 
     elif action == "complete":
@@ -103,8 +108,8 @@ def manage_tasks(
         task_mem.delete(task_mem.task_id == task_id)
 
         completed_record = dict(original_task[0])
-        completed_record['status'] = 'completed'
-        completed_record['updated_at'] = now
+        completed_record["status"] = "completed"
+        completed_record["updated_at"] = now
         task_mem.insert([completed_record])
 
         return f"Task '{task_id}' marked as completed."
@@ -112,13 +117,16 @@ def manage_tasks(
     else:
         return f"Error: Unknown action '{action}'. Valid actions are 'add', 'list', 'update', 'complete'."
 
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
     session_manager = StreamableHTTPSessionManager(app=mcp)
 
-    async def handle_streamable_http(scope: Scope, receive: Receive, send: Send) -> None:
+    async def handle_streamable_http(
+        scope: Scope, receive: Receive, send: Send
+    ) -> None:
         await session_manager.handle_request(scope, receive, send)
 
     @contextlib.asynccontextmanager

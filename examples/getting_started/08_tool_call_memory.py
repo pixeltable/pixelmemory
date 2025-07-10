@@ -11,7 +11,7 @@ schema = {
     "success": pxt.Bool,
     "timestamp": pxt.String,
     "context": pxt.String,
-    "execution_time": pxt.Float
+    "execution_time": pxt.Float,
 }
 
 mem = Memory(
@@ -19,7 +19,7 @@ mem = Memory(
     table_name="function_calls",
     schema=schema,
     columns_to_index=["context", "result"],
-    if_exists="replace"
+    if_exists="replace",
 )
 
 # Store tool call history for learning and optimization
@@ -32,17 +32,17 @@ tool_calls = [
         "success": True,
         "timestamp": "2024-01-15T10:00:00",
         "context": "User asked about weather for planning outdoor activities",
-        "execution_time": 1.2
+        "execution_time": 1.2,
     },
     {
-        "user_id": "user_123", 
+        "user_id": "user_123",
         "tool_name": "send_email",
         "parameters": {"to": "colleague@company.com", "subject": "Meeting reschedule"},
         "result": "Email sent successfully",
         "success": True,
         "timestamp": "2024-01-15T10:05:00",
         "context": "User needs to reschedule meeting due to weather",
-        "execution_time": 2.1
+        "execution_time": 2.1,
     },
     {
         "user_id": "user_456",
@@ -52,7 +52,7 @@ tool_calls = [
         "success": True,
         "timestamp": "2024-01-15T11:00:00",
         "context": "User learning about asynchronous programming concepts",
-        "execution_time": 3.5
+        "execution_time": 3.5,
     },
     {
         "user_id": "user_456",
@@ -62,8 +62,8 @@ tool_calls = [
         "success": True,
         "timestamp": "2024-01-15T11:02:00",
         "context": "User testing async function syntax",
-        "execution_time": 0.8
-    }
+        "execution_time": 0.8,
+    },
 ]
 
 mem.insert(tool_calls)
@@ -86,10 +86,7 @@ context_similarity = mem.context.similarity(current_context)
 recommended_tools = (
     mem.order_by(context_similarity, asc=False)
     .select(
-        mem.tool_name,
-        mem.parameters,
-        mem.context,
-        similarity_score=context_similarity
+        mem.tool_name, mem.parameters, mem.context, similarity_score=context_similarity
     )
     .limit(3)
     .collect()
@@ -104,7 +101,7 @@ tool_performance = (
         mem.tool_name,
         success_rate=(mem.success == True).sum() / mem.tool_name.count(),
         avg_execution_time=mem.execution_time.avg(),
-        total_calls=mem.tool_name.count()
+        total_calls=mem.tool_name.count(),
     )
     .collect()
 )
@@ -120,45 +117,45 @@ sequential_patterns = (
 )
 print("Tool sequence for user_123:", sequential_patterns)
 
+
 # Agent workflow: Get tool suggestions based on context and history
 def suggest_tools_for_context(user_id, current_context, limit=3):
     """Suggest tools based on user history and similar contexts"""
     print(f"\nTool suggestions for {user_id} in context: '{current_context}'")
-    
+
     # Get user's frequently used tools
     user_freq_tools = (
         mem.where(mem.user_id == user_id)
         .group_by(mem.tool_name)
         .select(
             mem.tool_name,
-            success_rate=(mem.success == True).sum() / mem.tool_name.count()
+            success_rate=(mem.success == True).sum() / mem.tool_name.count(),
         )
         .order_by(mem.tool_name.count(), asc=False)
         .limit(limit)
         .collect()
     )
-    
+
     # Get tools used in similar contexts by any user
     context_sim = mem.context.similarity(current_context)
     similar_context_tools = (
         mem.where(mem.success == True)
         .order_by(context_sim, asc=False)
-        .select(
-            mem.tool_name,
-            mem.parameters,
-            context_similarity=context_sim
-        )
+        .select(mem.tool_name, mem.parameters, context_similarity=context_sim)
         .limit(limit)
         .collect()
     )
-    
+
     return {
         "frequent_tools": user_freq_tools,
-        "context_similar_tools": similar_context_tools
+        "context_similar_tools": similar_context_tools,
     }
 
+
 # Example tool suggestion
-suggestions = suggest_tools_for_context("user_456", "User needs help with Python development")
+suggestions = suggest_tools_for_context(
+    "user_456", "User needs help with Python development"
+)
 print("Tool suggestions:", suggestions)
 
 # Retrieval Pattern 5: Failed tool calls for debugging

@@ -5,7 +5,7 @@ schema = {
     "memory_id": pxt.String,
     "name": pxt.String,
     "content": pxt.String,
-    "metadata": pxt.Json
+    "metadata": pxt.Json,
 }
 
 mem = Memory(schema=schema)
