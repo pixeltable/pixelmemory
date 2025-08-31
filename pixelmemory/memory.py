@@ -1,103 +1,123 @@
-"""
-Memory management system for AI applications.
-"""
-
+from typing import Dict, Any, Literal, List, Union, Optional, TYPE_CHECKING
+from dataclasses import dataclass, make_dataclass, asdict
 import pixeltable as pxt
-from pixeltable.functions.huggingface import sentence_transformer
-from typing import List, Dict, Any
-import json
-import datetime
+from .config import (
+    ChunkView,
+    FrameView,
+    IndexedColumn,
+)
+from .context import Context
+
+if TYPE_CHECKING:
+    from dataclasses import dataclass as _dataclass_base
+else:
+    _dataclass_base = object
+
+
+@dataclass
+class MemoryResources:
+    main_table: pxt.Table
+    chunk_views: List[ChunkView]
+    frame_views: List[FrameView]
+    indexed_columns: List[IndexedColumn]
+
 
 class Memory:
-    """A class for managing and retrieving AI conversation memories."""
-    
-    def __init__(self, embedding_model: str = "intfloat/e5-large-v2"):
-        """
-        Initialize the Memory system.
-        
-        Args:
-            embedding_model: The embedding model to use for semantic search
-        """
-        self.embedding_model = sentence_transformer.using(model_id=embedding_model)
-        
-    def _get_or_create_memory_table(self, user_id: str) -> pxt.Table:
-        """Get or create a memory table for the specified user."""
-        table_name = f"pixelmemory_{user_id}"
-        
-        try:
-            table = pxt.get_table(table_name)
-        except:
-            # Create new table if it doesn't exist
-            table = pxt.create_table(
-                table_name,
-                schema={
-                    "timestamp": pxt.Timestamp,
-                    "memory": pxt.String,
-                    "metadata": pxt.String,
-                }
-            )
-            
-            # Add embedding index
-            table.add_embedding_index(
-                column="memory",
-                idx_name="memory_idx",
-                string_embed=self.embedding_model,
-                if_exists="ignore",
-            )
-            
-        return table
-    
-    def add(self, messages: List[Dict[str, str]], user_id: str = "default_user") -> None:
-        """
-        Add conversation messages to memory.
-        
-        Args:
-            messages: List of message dictionaries with 'role' and 'content' keys
-            user_id: Identifier for the user whose memory to update
-        """
-        table = self._get_or_create_memory_table(user_id)
-        
-        # Extract the conversation as a memory
-        conversation = " ".join([f"{msg['role']}: {msg['content']}" for msg in messages])
-        
-        # Store the memory
-        table.insert({
-            "timestamp": datetime.datetime.now(),
-            "memory": conversation,
-            "metadata": json.dumps({"messages": messages})
-        })
-    
-    def search(self, query: str, user_id: str = "default_user", limit: int = 5) -> Dict[str, List[Dict[str, Any]]]:
-        """
-        Search for relevant memories based on semantic similarity.
-        
-        Args:
-            query: The search query
-            user_id: Identifier for the user whose memories to search
-            limit: Maximum number of results to return
-            
-        Returns:
-            Dictionary with search results
-        """
-        table = self._get_or_create_memory_table(user_id)
-        
-        # Perform semantic search
-        sim = table.memory.similarity(query, idx="memory_idx")
-        results = (
-            table.order_by(sim, asc=False)
-            .select(table.timestamp, table.memory, table.metadata, similarity=sim)
-            .limit(limit)
-            .collect()
+    def __init__(
+        self,
+        context: List[Context],
+        namespace: str = "default_memory",
+        table_name: str = "memory",
+        if_exists: Literal["ignore", "error", "replace_force"] = "ignore",
+        **kwargs,
+    ):
+        self.namespace = namespace
+        self.table_name = table_name
+        self.context = context
+        self.if_exists = if_exists
+
+        self.schema: Dict[str, pxt.ColumnType] = {
+            col.id: col._pxt_type for col in self.context
+        }
+        self.columns_to_embed: Dict[str, Context] = {
+            col.id: col for col in self.context if col.text_embedding
+        }
+
+        table_path = f"{self.namespace}.{self.table_name}"
+        if self.namespace not in pxt.list_dirs():
+            pxt.create_dir(self.namespace)
+
+        self.table: pxt.Table = pxt.create_table(
+            table_path, schema=self.schema, if_exists=self.if_exists, **kwargs
         )
-        
-        # Format results
-        formatted_results = []
-        for i in range(len(results["memory"])):
-            formatted_results.append({
-                "timestamp": results["timestamp"][i].isoformat() if results["timestamp"][i] else None,
-                "memory": results["memory"][i],
-                "metadata": json.loads(results["metadata"][i]) if results["metadata"][i] else {},
-                "similarity": float(results["similarity"][i])
-            })
-            
-        return {"results": formatted_results}
+
+        self.resources = MemoryResources(
+            main_table=self.table, chunk_views=[], frame_views=[], indexed_columns=[]
+        )
+
+        if self.columns_to_embed:
+            self.setup_indexing()
+
+        self.Entry = make_dataclass(
+            "MemoryEntry",
+            [(col.id, Any) for col in self.context],
+            bases=(_dataclass_base,),
+        )
+
+    def _get_embed_model(
+        self, override_model: Optional[Union[str, pxt.Function]] = None
+    ) -> pxt.Function:
+        model = override_model or "intfloat/e5-large-v2"
+        if isinstance(model, str):
+            from pixeltable.functions.huggingface import sentence_transformer
+
+            return sentence_transformer.using(model_id=model)
+        return model
+
+    def setup_indexing(self, columns_to_index: Optional[List[str]] = None) -> None:
+        from .indexing import setup_column_indexing
+
+        columns_to_index = columns_to_index or list(self.columns_to_embed.keys())
+        if not columns_to_index:
+            return
+        for col_name in columns_to_index:
+            if col_name not in self.schema:
+                continue
+            col_type = self.schema[col_name]
+            col_settings = self.columns_to_embed.get(col_name)
+            setup_column_indexing(self, col_name, col_type, col_settings)
+
+    def add(self, *rows: "Memory.Entry") -> None:
+        """
+        Add one or more rows to the memory table.
+
+        This method supports batch insertion for efficiency, converting the provided
+        Entry instances to the dictionary format required by Pixeltable.
+
+        Args:
+            *rows: One or more instances of the dynamically generated Memory.Entry dataclass.
+
+        Raises:
+            ValueError: If no rows are provided.
+
+        Example:
+            # Single row
+            entry = self.Entry(caption="This is a test.", image_path="/path/to/image.jpg")
+            self.add(entry)
+
+            # Multiple rows (batched insert)
+            entry1 = self.Entry(caption="Test 1", image_path="/path/1.jpg")
+            entry2 = self.Entry(caption="Test 2", image_path="/path/2.jpg")
+            self.add(entry1, entry2)
+        """
+        if not rows:
+            raise ValueError("At least one row must be provided.")
+        row_dicts = [asdict(row) for row in rows]
+        self.table.insert(row_dicts)
+
+    def __getattr__(self, name: str) -> Any:
+        if hasattr(self.resources.main_table, name):
+            return getattr(self.resources.main_table, name)
+        raise AttributeError(
+            f"'{self.__class__.__name__}' object (or its underlying Table) has no attribute '{name}'"
+        )
