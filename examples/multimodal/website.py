@@ -1,32 +1,28 @@
-import pixeltable as pxt
 from pixelmemory import Memory
+from pixelmemory.context import Document, Text
 import uuid
 from datetime import datetime
 
-website_schema = {
-    "memory_id": pxt.Required[pxt.String],
-    "website_content": pxt.Document,
-    "inserted_at": pxt.Timestamp,
-}
+context = [
+    Text(id="memory_id", embed=False),
+    Document(id="website_content"),
+    Text(id="inserted_at", embed=False),
+]
 
 memory = Memory(
+    context=context,
     namespace="website_memory_example",
-    table_name="website_files",
-    schema=website_schema,
-    columns_to_index=["website_content"],
-    primary_key="memory_id",
+    table_name="website_files"
 )
 
 website_url = "https://quotes.toscrape.com/"
-memory.insert(
-    [
-        {
-            "memory_id": str(uuid.uuid4()),
-            "website_content": website_url,
-            "inserted_at": datetime.now(),
-        }
-    ]
+
+entry = memory.Entry(
+    memory_id=str(uuid.uuid4()),
+    website_content=website_url,
+    inserted_at=str(datetime.now())
 )
+memory.add(entry)
 
 query = "inspirational quotes about life"
 chunk_view = memory.chunk_views["website_content"]

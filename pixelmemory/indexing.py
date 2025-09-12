@@ -27,7 +27,7 @@ def setup_column_indexing(
     col_type: Any,
     col_settings: Optional[Any] = None,
 ) -> None:
-    embed_model = memory_instance._get_embed_model(col_settings.text_embedding_model)
+    embed_model = memory_instance._get_embed_model(col_settings.embed_model)
     index_name = col_settings.index_name or "similarity"
 
     if col_type == pxt.Image:
@@ -234,7 +234,7 @@ def setup_video_indexing(
     )
     audio_col = getattr(memory_instance.table, audio_col_name)
     audio_col_settings = Audio(
-        name=col_name,
+        id=col_name,
         chunk_params=col_settings.audio_chunk_params,
         transcription_model=col_settings.transcription_model,
         transcription_kwargs=col_settings.transcription_kwargs,
@@ -267,7 +267,7 @@ def setup_video_indexing(
     )
 
     image_col_settings = Image(
-        name="frame",
+        id="frame",
         provider=col_settings.provider,
         model=col_settings.model,
         prompt=col_settings.prompt,

@@ -9,54 +9,57 @@ import uuid
 # One for the knowledge base (financial reports) and one for conversation history.
 
 # Knowledge Base Memory
+from pixelmemory.context import Document, Text
+
+kb_context = [
+    Text(id="doc_id", embed=False),
+    Document(id="report"),
+    Text(id="company", embed=False),
+    Text(id="report_type", embed=False),
+    Text(id="year", embed=False),
+]
+
 kb_mem = Memory(
+    context=kb_context,
     namespace="financial_kb",
     table_name="reports",
-    schema={
-        "doc_id": pxt.Required[pxt.String],
-        "report": pxt.Document,
-        "company": pxt.String,
-        "report_type": pxt.String,
-        "year": pxt.Int,
-    },
-    primary_key="doc_id",
-    columns_to_index=["report", "company", "report_type", "year"],
-    if_exists="replace_force",
+    if_exists="replace_force"
 )
 
 # Conversation History Memory
+chat_context = [
+    Text(id="session_id", embed=False),
+    Text(id="messages", embed=False),
+]
+
 chat_mem = Memory(
+    context=chat_context,
     namespace="financial_chat",
     table_name="history",
-    schema={
-        "session_id": pxt.Required[pxt.String],
-        "messages": pxt.Json,
-    },
-    primary_key="session_id",
-    if_exists="replace_force",
+    if_exists="replace_force"
 )
 
 # --- 2. Populate the Knowledge Base ---
 # We'll use a sample Zacks Nvidia financial report and a fictional AMD report.
 REPORT_URL_NVDA = "https://raw.githubusercontent.com/pixeltable/pixeltable/main/docs/resources/rag-demo/Zacks-Nvidia-Report.pdf"
-kb_mem.insert(
-    [
-        {
-            "doc_id": "zacks-nvidia-report",
-            "report": REPORT_URL_NVDA,
-            "company": "Nvidia",
-            "report_type": "Equity Research",
-            "year": 2024,
-        },
-        {
-            "doc_id": "fictional-amd-report",
-            "report": REPORT_URL_NVDA,  # Using same PDF for demo purposes
-            "company": "AMD",
-            "report_type": "Earnings Call Transcript",
-            "year": 2023,
-        },
-    ]
-)
+
+entries = [
+    kb_mem.Entry(
+        doc_id="zacks-nvidia-report",
+        report=REPORT_URL_NVDA,
+        company="Nvidia",
+        report_type="Equity Research",
+        year="2024"
+    ),
+    kb_mem.Entry(
+        doc_id="fictional-amd-report",
+        report=REPORT_URL_NVDA,  # Using same PDF for demo purposes
+        company="AMD",
+        report_type="Earnings Call Transcript",
+        year="2023"
+    )
+]
+kb_mem.add(*entries)
 print("📚 Knowledge base populated with financial reports.")
 
 # --- 3. The RAG Agent Logic ---
@@ -132,15 +135,11 @@ def financial_chat(session_id: str, user_text: str, filters: dict = None) -> str
 
     # e. Save updated history
     updated_messages = messages + [ai_response]
-    chat_mem.insert(
-        [
-            {
-                "session_id": session_id,
-                "messages": [m.dict() for m in updated_messages],
-            }
-        ],
-        on_conflict="update",
+    entry = chat_mem.Entry(
+        session_id=session_id,
+        messages=str([m.dict() for m in updated_messages])
     )
+    chat_mem.add(entry)
     print("💾 Saved conversation history.")
 
     return ai_response.content

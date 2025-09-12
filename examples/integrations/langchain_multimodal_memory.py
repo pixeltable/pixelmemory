@@ -5,18 +5,26 @@ from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage
 
 # 1. Set up PixelMemory to store image references
+from pixelmemory.context import Text
+
+context = [
+    Text(id="image_id", embed=False),
+    Text(id="image_url", embed=False),
+]
+
 mem = Memory(
+    context=context,
     namespace="langchain_multimodal",
     table_name="image_store",
-    schema={"image_id": pxt.Required[pxt.String], "image_url": pxt.String},
-    primary_key="image_id",
-    if_exists="replace_force",
+    if_exists="replace_force"
 )
 
 # 2. Store an image URL in PixelMemory
 IMAGE_ID = "boardwalk_image"
 IMAGE_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
-mem.insert([{"image_id": IMAGE_ID, "image_url": IMAGE_URL}])
+
+entry = mem.Entry(image_id=IMAGE_ID, image_url=IMAGE_URL)
+mem.add(entry)
 print(f"Stored image '{IMAGE_ID}' in PixelMemory.")
 
 # 3. Retrieve the image URL from PixelMemory

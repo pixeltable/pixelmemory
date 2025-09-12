@@ -2,25 +2,30 @@ from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 from pixelmemory import Memory
-import pixeltable as pxt
+from pixelmemory.context import Text, Image, Video, Audio, Document
 import uvicorn
 
 app = FastAPI(
     title="AI Memory Service",
-    description="A FastAPI service for creating, managing, and searching multimodal memories.",
-    version="1.0.0",
+    description="A FastAPI service for creating, managing, and searching multimodal memories with context-based API.",
+    version="2.0.0",
 )
 
 # --- Pydantic Models for Request/Response ---
 
 
+class ContextField(BaseModel):
+    id: str
+    type: str  # "text", "image", "video", "audio", "document"
+    embed: Optional[bool] = True
+    provider: Optional[str] = None  # For image/video
+    model: Optional[str] = None     # For image/video
+
 class CreateMemoryRequest(BaseModel):
     namespace: str
     table_name: str
-    schema: Dict[str, str]
-    columns_to_index: List[str]
+    context: List[ContextField]
     if_exists: Optional[str] = "ignore"
-    primary_key: Optional[str] = None
 
 
 class AddItemsRequest(BaseModel):
@@ -30,8 +35,7 @@ class AddItemsRequest(BaseModel):
 class MemoryInfoResponse(BaseModel):
     namespace: str
     table_name: str
-    schema: Dict[str, Any]
-    columns_to_index: List[str]
+    context: List[Dict[str, Any]]
     metadata: Dict[str, Any]
 
 
@@ -45,33 +49,44 @@ def get_memory(namespace: str, table_name: str) -> Memory:
     if cache_key in memory_cache:
         return memory_cache[cache_key]
 
-    try:
-        mem = Memory(namespace=namespace, table_name=table_name)
-        memory_cache[cache_key] = mem
-        return mem
-    except Exception as e:
-        raise HTTPException(
-            status_code=404, detail=f"Memory '{cache_key}' not found: {e}"
-        )
+    # Note: We can't recreate a Memory from scratch without the original context
+    # In a real application, you'd store the context configuration alongside the memory
+    raise HTTPException(
+        status_code=404, 
+        detail=f"Memory '{cache_key}' not found in cache. Use create_memory first."
+    )
 
 
-def pxt_type_from_string(type_str: str) -> pxt.ColumnType:
-    """Converts a string to a pixeltable type."""
-    type_map = {
-        "string": pxt.String,
-        "int": pxt.Int,
-        "float": pxt.Float,
-        "bool": pxt.Bool,
-        "timestamp": pxt.Timestamp,
-        "json": pxt.Json,
-        "image": pxt.Image,
-        "video": pxt.Video,
-        "audio": pxt.Audio,
-        "document": pxt.Document,
-    }
-    if type_str.lower() in type_map:
-        return type_map[type_str.lower()]()
-    raise HTTPException(status_code=400, detail=f"Unsupported pxt type: {type_str}")
+def context_from_fields(context_fields: List[ContextField]) -> List:
+    """Converts context field definitions to context objects."""
+    context = []
+    
+    for field in context_fields:
+        if field.type == "text":
+            context.append(Text(id=field.id, embed=field.embed))
+        elif field.type == "image":
+            context.append(Image(
+                id=field.id, 
+                provider=field.provider or "openai",
+                model=field.model or "gpt-4o-mini"
+            ))
+        elif field.type == "video":
+            context.append(Video(
+                id=field.id,
+                provider=field.provider or "openai", 
+                model=field.model or "gpt-4o-mini"
+            ))
+        elif field.type == "audio":
+            context.append(Audio(id=field.id))
+        elif field.type == "document":
+            context.append(Document(id=field.id))
+        else:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Unsupported context type: {field.type}"
+            )
+    
+    return context
 
 
 # --- API Endpoints ---
@@ -80,22 +95,24 @@ def pxt_type_from_string(type_str: str) -> pxt.ColumnType:
 @app.post("/memories", status_code=201)
 def create_memory(req: CreateMemoryRequest):
     """
-    Creates a new memory table.
+    Creates a new memory table using context-based API.
     """
     try:
-        # Convert string schema to pixeltable types
-        pxt_schema = {
-            col: pxt_type_from_string(type_str) for col, type_str in req.schema.items()
-        }
+        # Convert context fields to context objects
+        context = context_from_fields(req.context)
 
-        Memory(
+        # Create the memory instance
+        memory = Memory(
+            context=context,
             namespace=req.namespace,
             table_name=req.table_name,
-            schema=pxt_schema,
-            columns_to_index=req.columns_to_index,
-            if_exists=req.if_exists,
-            primary_key=req.primary_key,
+            if_exists=req.if_exists
         )
+        
+        # Cache the memory instance
+        cache_key = f"{req.namespace}.{req.table_name}"
+        memory_cache[cache_key] = memory
+        
         return {
             "message": f"Memory '{req.namespace}.{req.table_name}' created successfully."
         }
@@ -106,11 +123,17 @@ def create_memory(req: CreateMemoryRequest):
 @app.post("/memories/{namespace}/{table_name}/items", status_code=201)
 def add_items(namespace: str, table_name: str, req: AddItemsRequest):
     """
-    Adds one or more items to a memory table.
+    Adds one or more items to a memory table using Entry API.
     """
     mem = get_memory(namespace, table_name)
     try:
-        mem.insert(req.items)
+        # Convert items to Entry objects
+        entries = []
+        for item in req.items:
+            entry = mem.Entry(**item)
+            entries.append(entry)
+        
+        mem.add(*entries)
         return {"message": f"Successfully added {len(req.items)} items."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to add items: {e}")
@@ -136,17 +159,23 @@ def search_items(
 
         # Apply semantic search if query and search_column are provided
         if query and search_column:
-            if search_column not in mem.schema:
+            try:
+                similarity = getattr(mem, search_column).similarity(query)
+                q = q.order_by(similarity, asc=False)
+            except AttributeError:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Search column '{search_column}' not in schema.",
+                    detail=f"Search column '{search_column}' not found or not searchable.",
                 )
-            similarity = getattr(mem, search_column).similarity(query)
-            q = q.order_by(similarity, asc=False)
 
         # Apply filter expression
         if filter_expression:
-            q = q.where(pxt.expr(filter_expression))
+            # Note: Direct filter expression parsing would require more complex implementation
+            # For now, we skip this feature in the context-based API
+            raise HTTPException(
+                status_code=400,
+                detail="Filter expressions not yet supported in context-based API"
+            )
 
         # Apply select columns
         if select:
@@ -200,19 +229,30 @@ def list_memories(namespace: Optional[str] = None):
 @app.get("/memories/{namespace}/{table_name}", response_model=MemoryInfoResponse)
 def get_memory_info(namespace: str, table_name: str):
     """
-    Retrieves metadata and schema information for a specific memory table.
+    Retrieves metadata and context information for a specific memory table.
     """
     mem = get_memory(namespace, table_name)
     try:
         metadata = mem.table.get_metadata()
-        # The schema from get_metadata is already in a serializable format
+        
+        # Extract context information from the memory instance
+        context_info = []
+        for ctx in mem.context:
+            ctx_dict = {
+                "id": ctx.id,
+                "type": ctx.__class__.__name__.lower(),
+                "embed": ctx.embed
+            }
+            if hasattr(ctx, 'provider'):
+                ctx_dict["provider"] = ctx.provider
+            if hasattr(ctx, 'model'):
+                ctx_dict["model"] = ctx.model
+            context_info.append(ctx_dict)
+        
         return {
             "namespace": namespace,
             "table_name": table_name,
-            "schema": metadata["schema"],
-            "columns_to_index": [
-                col["name"] for col in metadata["cols"] if col.get("is_indexed")
-            ],
+            "context": context_info,
             "metadata": metadata,
         }
     except Exception as e:

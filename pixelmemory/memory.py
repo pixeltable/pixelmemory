@@ -40,7 +40,7 @@ class Memory:
             col.id: col._pxt_type for col in self.context
         }
         self.columns_to_embed: Dict[str, Context] = {
-            col.id: col for col in self.context if col.text_embedding
+            col.id: col for col in self.context if col.embed
         }
 
         table_path = f"{self.namespace}.{self.table_name}"

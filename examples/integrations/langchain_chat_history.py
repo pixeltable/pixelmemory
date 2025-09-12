@@ -11,11 +11,18 @@ from langchain_core.messages import (
 )
 
 # 1. Set up PixelMemory as a persistent message store
+from pixelmemory.context import Text
+
+context = [
+    Text(id="session_id", embed=False),
+    Text(id="messages", embed=False),
+]
+
 mem = Memory(
+    context=context,
     namespace="langchain_memory",
     table_name="chat_history",
-    schema={"session_id": pxt.String, "messages": pxt.Json},
-    if_exists="replace_force",
+    if_exists="replace_force"
 )
 
 # 2. Initialize the LangChain model
@@ -49,7 +56,8 @@ def chat(
     messages.append(ai_response)
 
     # Save the updated history back to PixelMemory
-    mem.insert([{"session_id": session_id, "messages": messages_to_dict(messages)}])
+    entry = mem.Entry(session_id=session_id, messages=str(messages_to_dict(messages)))
+    mem.add(entry)
 
     return ai_response
 

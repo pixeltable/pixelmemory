@@ -1,32 +1,28 @@
-import pixeltable as pxt
 from pixelmemory import Memory
+from pixelmemory.context import Image, Text
 import uuid
 from datetime import datetime
 
-image_schema = {
-    "memory_id": pxt.Required[pxt.String],
-    "image": pxt.Image,
-    "inserted_at": pxt.Timestamp,
-}
+context = [
+    Text(id="memory_id", embed=False),
+    Image(id="image", provider="openai", model="gpt-4o-mini"),
+    Text(id="inserted_at", embed=False),
+]
 
 memory = Memory(
+    context=context,
     namespace="image_memory_example",
-    table_name="image_files",
-    schema=image_schema,
-    columns_to_index=["image"],
-    primary_key="memory_id",
+    table_name="image_files"
 )
 
 image_url = "https://raw.githubusercontent.com/pixeltable/pixeltable/release/docs/resources/images/000000000030.jpg"
-memory.insert(
-    [
-        {
-            "memory_id": str(uuid.uuid4()),
-            "image": image_url,
-            "inserted_at": datetime.now(),
-        }
-    ]
+
+entry = memory.Entry(
+    memory_id=str(uuid.uuid4()),
+    image=image_url,
+    inserted_at=str(datetime.now())
 )
+memory.add(entry)
 
 query = "A person on a skateboard"
 sim = memory.image_description.similarity(query)

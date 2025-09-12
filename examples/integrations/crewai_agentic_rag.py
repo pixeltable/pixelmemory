@@ -1,7 +1,8 @@
 # pip install crewai openai pixelmemory
 
-import pixeltable as pxt
 from pixelmemory import Memory
+from pixelmemory.context import Document, Text
+from pixelmemory.config import DocumentSplitterParams
 from crewai import Crew, Agent, Task, Process, LLM
 from crewai.tools import tool
 
@@ -10,14 +11,16 @@ urls = [
     "https://lilianweng.github.io/posts/2024-07-07-hallucination",
 ]
 
+context = [
+    Text(id="doc_id", embed=False),
+    Document(id="content", chunk_params=DocumentSplitterParams(separators="token_limit", limit=400, overlap=40)),
+]
+
 website_knowledge = Memory(
+    context=context,
     namespace="crewai_rag_example",
     table_name="web_pages",
-    schema={"doc_id": pxt.Required[pxt.String], "content": pxt.Document},
-    primary_key="doc_id",
-    columns_to_index=["content"],
-    document_iterator_kwargs={"separators": "token_limit", "limit": 400, "overlap": 40},
-    if_exists="replace_force",
+    if_exists="replace_force"
 )
 
 
@@ -69,8 +72,8 @@ crew = Crew(
 )
 
 # Add knowledge to memory
-data_to_insert = [{"doc_id": url, "content": url} for url in urls]
-website_knowledge.insert(data_to_insert)
+entries = [website_knowledge.Entry(doc_id=url, content=url) for url in urls]
+website_knowledge.add(*entries)
 
 # Kickoff crew
 question = "What is reward hacking and what are some examples? Provide sources."

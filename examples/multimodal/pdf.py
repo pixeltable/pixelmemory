@@ -1,32 +1,28 @@
-import pixeltable as pxt
 from pixelmemory import Memory
+from pixelmemory.context import Document, Text
 import uuid
 from datetime import datetime
 
-doc_schema = {
-    "memory_id": pxt.Required[pxt.String],
-    "document": pxt.Document,
-    "inserted_at": pxt.Timestamp,
-}
+context = [
+    Text(id="memory_id", embed=False),
+    Document(id="document"),
+    Text(id="inserted_at", embed=False),
+]
 
 memory = Memory(
+    context=context,
     namespace="document_memory_example",
-    table_name="doc_files",
-    schema=doc_schema,
-    columns_to_index=["document"],
-    primary_key="memory_id",
+    table_name="doc_files"
 )
 
 doc_url = "https://github.com/pixeltable/pixeltable/raw/release/docs/resources/rag-demo/Zacks-Nvidia-Report.pdf"
-memory.insert(
-    [
-        {
-            "memory_id": str(uuid.uuid4()),
-            "document": doc_url,
-            "inserted_at": datetime.now(),
-        }
-    ]
+
+entry = memory.Entry(
+    memory_id=str(uuid.uuid4()),
+    document=doc_url,
+    inserted_at=str(datetime.now())
 )
+memory.add(entry)
 
 query = "What are the key growth drivers for Nvidia?"
 chunk_view = memory.chunk_views["document"]

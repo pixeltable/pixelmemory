@@ -16,22 +16,23 @@ from starlette.applications import Starlette
 from starlette.routing import Mount
 from starlette.types import Receive, Scope, Send
 
-# --- Memory Schema ---
-task_schema = {
-    "task_id": pxt.String,
-    "description": pxt.String,
-    "status": pxt.String,
-    "created_at": pxt.Timestamp,
-    "updated_at": pxt.Timestamp,
-}
+# --- Memory Context ---
+from pixelmemory.context import Text
+
+context = [
+    Text(id="task_id", embed=False),
+    Text(id="description", embed=True),
+    Text(id="status", embed=False),
+    Text(id="created_at", embed=False),
+    Text(id="updated_at", embed=False),
+]
 
 # --- Memory Initialization ---
 task_mem = Memory(
+    context=context,
     namespace="agentic_developer_memory",
     table_name="tasks",
-    schema=task_schema,
-    columns_to_index=["description"],
-    if_exists="ignore",
+    if_exists="ignore"
 )
 
 mcp = FastMCP()
@@ -52,14 +53,14 @@ def manage_tasks(
         if not task_description:
             return "Error: task_description is required for 'add' action."
         new_task_id = str(uuid.uuid4())
-        record = {
-            "task_id": new_task_id,
-            "description": task_description,
-            "status": "pending",
-            "created_at": now,
-            "updated_at": now,
-        }
-        task_mem.insert([record])
+        entry = task_mem.Entry(
+            task_id=new_task_id,
+            description=task_description,
+            status="pending",
+            created_at=str(now),
+            updated_at=str(now)
+        )
+        task_mem.add(entry)
         return f"Task added with ID: {new_task_id}"
 
     elif action == "list":
@@ -90,10 +91,15 @@ def manage_tasks(
 
         task_mem.delete(task_mem.task_id == task_id)
 
-        updated_record = dict(original_task[0])
-        updated_record["status"] = status
-        updated_record["updated_at"] = now
-        task_mem.insert([updated_record])
+        original = original_task[0]
+        updated_entry = task_mem.Entry(
+            task_id=original["task_id"],
+            description=original["description"],
+            status=status,
+            created_at=str(original["created_at"]),
+            updated_at=str(now)
+        )
+        task_mem.add(updated_entry)
 
         return f"Task '{task_id}' updated to status '{status}'."
 
@@ -107,10 +113,15 @@ def manage_tasks(
 
         task_mem.delete(task_mem.task_id == task_id)
 
-        completed_record = dict(original_task[0])
-        completed_record["status"] = "completed"
-        completed_record["updated_at"] = now
-        task_mem.insert([completed_record])
+        original = original_task[0]
+        completed_entry = task_mem.Entry(
+            task_id=original["task_id"],
+            description=original["description"],
+            status="completed",
+            created_at=str(original["created_at"]),
+            updated_at=str(now)
+        )
+        task_mem.add(completed_entry)
 
         return f"Task '{task_id}' marked as completed."
 
