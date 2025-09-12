@@ -1,4 +1,4 @@
-# PixelMemory
+# Pixelmemory
 
 **Reference Implementation: Multimodal Memory Layer Built on [Pixeltable](https://github.com/pixeltable/pixeltable)**
 
@@ -8,15 +8,13 @@
 
 ## Overview
 
-PixelMemory demonstrates how to build sophisticated memory layers using [Pixeltable's](https://github.com/pixeltable/pixeltable) declarative data infrastructure. This reference implementation shows how to create persistent, searchable, multimodal memory for stateful AI agents.
-
-**Built on [Pixeltable](https://github.com/pixeltable/pixeltable)** - the leading open-source declarative data infrastructure for multimodal AI applications with 800+ GitHub stars.
+Pixelmemory demonstrates how to build sophisticated memory layers using [Pixeltable's](https://github.com/pixeltable/pixeltable) declarative data infrastructure. This reference implementation shows how to create persistent, searchable, multimodal memory for stateful AI agents.
 
 ```mermaid
 graph TB
-    A[Your AI Agent] --> B[PixelMemory Layer]
+    A[Your AI Agent] --> B[Pixelmemory Layer]
     B --> C[Pixeltable Foundation]
-    C --> D[(Local PostgreSQL)]
+    C --> D[(Local Storage)]
     C --> E[Vector Indexes]
     C --> F[Computed Columns]
     
@@ -33,9 +31,9 @@ graph TB
     K --> L
 ```
 
-## Why Use PixelMemory?
+## Why Use Pixelmemory?
 
-Most AI applications today are stateless - they forget everything between sessions. PixelMemory solves this by providing:
+Most AI applications today are stateless - they forget everything between sessions. Pixelmemory solves this by providing:
 
 - **Persistent memory** that survives between sessions
 - **Semantic search** across all data types  
@@ -48,6 +46,8 @@ Most AI applications today are stateless - they forget everything between sessio
 ```bash
 pip install pixelmemory
 ```
+
+*Note: Pixeltable is automatically installed as a dependency - no additional setup required.*
 
 ## Quick Start
 
@@ -78,9 +78,9 @@ results = memory.where(similarity >= 0.5).collect()
 ```mermaid
 sequenceDiagram
     participant App as Your App
-    participant PM as PixelMemory
+    participant PM as Pixelmemory
     participant PT as Pixeltable
-    participant DB as PostgreSQL
+    participant DB as Pixeltable Storage
     
     App->>PM: Create memory with context
     PM->>PT: Create table with schema
@@ -165,13 +165,13 @@ All examples use the context-based API and are ready to run:
 - `examples/multimodal/audio.py`
 
 **Integration Examples**:
-- `examples/integrations/langchain_chat_history.py`
-- `examples/integrations/crewai_agentic_rag.py`
-- `examples/fastapi/memory_service.py`
+- `examples/integrations/langchain_chat_history.py` (requires OpenAI API key)
+- `examples/integrations/crewai_agentic_rag.py` (requires `pip install crewai`)
+- `examples/fastapi/memory_service.py` (requires `pip install fastapi uvicorn`)
 
 ## Built on Pixeltable
 
-PixelMemory is powered by **[Pixeltable](https://github.com/pixeltable/pixeltable)** - the leading open-source platform for multimodal AI applications.
+Pixelmemory is powered by **[Pixeltable](https://github.com/pixeltable/pixeltable)** - the leading open-source platform for multimodal AI applications.
 
 ### Why Pixeltable?
 
@@ -180,11 +180,11 @@ PixelMemory is powered by **[Pixeltable](https://github.com/pixeltable/pixeltabl
 - **Built-in multimodal support** (images, videos, audio, documents)
 - **Automatic embedding indexes** and vector search
 - **Incremental computation** - only recomputes what's changed
-- **Production-ready** with robust PostgreSQL backend
+- **Production-ready** with robust data persistence
 
 ```mermaid
 graph LR
-    A[PixelMemory] --> B[Pixeltable Platform]
+    A[Pixelmemory] --> B[Pixeltable Platform]
     B --> C[Tables & Schemas]
     B --> D[Computed Columns]
     B --> E[Embedding Indexes]
@@ -210,7 +210,7 @@ graph LR
 
 ---
 
-**Remember**: PixelMemory is a reference implementation. Use it as inspiration to build your own memory architecture using [Pixeltable's](https://github.com/pixeltable/pixeltable) flexible primitives.
+**Remember**: Pixelmemory is a reference implementation. Use it as inspiration to build your own memory architecture using [Pixeltable's](https://github.com/pixeltable/pixeltable) flexible primitives.
 
 ## License
 

@@ -1,5 +1,4 @@
-# pip install langchain-openai langchain pixeltable
-import pixeltable as pxt
+# pip install langchain-openai langchain pixelmemory
 from pixelmemory import Memory
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import (

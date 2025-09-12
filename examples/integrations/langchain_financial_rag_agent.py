@@ -1,5 +1,4 @@
-# uv pip install langchain-openai pixeltable httpx "unstructured[pdf]"
-import pixeltable as pxt
+# uv pip install langchain-openai pixelmemory httpx "unstructured[pdf]"
 from pixelmemory import Memory
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage

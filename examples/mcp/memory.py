@@ -7,7 +7,6 @@ import json
 import uuid
 from typing import Optional
 
-import pixeltable as pxt
 import uvicorn
 from mcp.server.fastmcp import FastMCP
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
