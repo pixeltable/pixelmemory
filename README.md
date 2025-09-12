@@ -169,33 +169,6 @@ All examples use the context-based API and are ready to run:
 - `examples/integrations/crewai_agentic_rag.py` (requires `pip install crewai`)
 - `examples/fastapi/memory_service.py` (requires `pip install fastapi uvicorn`)
 
-## Built on Pixeltable
-
-Pixelmemory is powered by **[Pixeltable](https://github.com/pixeltable/pixeltable)** - the leading open-source platform for multimodal AI applications.
-
-### Why Pixeltable?
-
-- **806+ GitHub stars** and active community
-- **Declarative data infrastructure** for AI workloads
-- **Built-in multimodal support** (images, videos, audio, documents)
-- **Automatic embedding indexes** and vector search
-- **Incremental computation** - only recomputes what's changed
-- **Production-ready** with robust data persistence
-
-```mermaid
-graph LR
-    A[Pixelmemory] --> B[Pixeltable Platform]
-    B --> C[Tables & Schemas]
-    B --> D[Computed Columns]
-    B --> E[Embedding Indexes]
-    B --> F[Vector Search]
-    B --> G[Multimodal Support]
-    
-    H[Your Use Case] --> A
-    I[Other AI Apps] --> B
-    J[RAG Systems] --> B
-    K[Computer Vision] --> B
-```
 
 ## Next Steps
 
