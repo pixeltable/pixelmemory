@@ -174,7 +174,7 @@ All examples use the context-based API and are ready to run:
 
 **Ready to build more advanced AI applications?**
 
-1. **[Explore Pixeltable](https://github.com/pixeltable/pixeltable)** - Master the underlying platform (800+ stars)
+1. **[Explore Pixeltable](https://github.com/pixeltable/pixeltable)** - Master the underlying infrastructure
 2. **[Read the documentation](https://docs.pixeltable.com/)** - Comprehensive guides and tutorials  
 3. **[Join the community](https://discord.gg/QPyqFYx2UN)** - Get help and share your implementations
 4. **[See advanced examples](https://docs.pixeltable.com/docs/examples/use-cases)** - RAG, computer vision, audio processing
