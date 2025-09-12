@@ -3,7 +3,7 @@
      alt="Pixelmemory Logo" width="70%" />
 <br></br>
 
-<h2>Reference Implementation: Multimodal Memory Layer Built on Pixeltable</h2>
+<h2>Multimodal Memory Layer Built on Pixeltable</h2>
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-0530AD.svg)](https://opensource.org/licenses/Apache-2.0)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pixelmemory?logo=python&logoColor=white&)
@@ -17,7 +17,7 @@
 
 ---
 
-**Pixelmemory demonstrates how to build sophisticated memory layers on top of [Pixeltable](https://github.com/pixeltable/pixeltable).** This reference implementation shows how to create persistent, searchable, multimodal memory for stateful AI agents—addressing the core challenges outlined in our guide on [Building Memory-Powered AI: Creating Stateful Agents with Pixeltable](https://www.pixeltable.com/blog/building-memory-powered-ai-stateful-agents-pixeltable).
+**Pixelmemory demonstrates how to build sophisticated memory layers on top of [Pixeltable](https://github.com/pixeltable/pixeltable).** This reference implementation shows how to create persistent, searchable, multimodal memory for stateful AI agents, addressing the core challenges outlined in our guide on [Building Memory-Powered AI: Creating Stateful Agents with Pixeltable](https://www.pixeltable.com/blog/building-memory-powered-ai-stateful-agents-pixeltable).
 
 ## 😩 Building AI Applications with Memory is Still Too Hard
 
@@ -76,20 +76,20 @@ Pixelmemory leverages Pixeltable's powerful declarative data infrastructure to p
 
 ## 🚀 Key Features
 
-* **[Intuitive Python API:](https://docs.pixeltable.com/docs/datastore/tables-and-operations)** Simple `insert()` and `batch_insert()` methods for storing memories.
+**[Intuitive Python API:](https://docs.pixeltable.com/docs/datastore/tables-and-operations)** Simple `insert()` and `batch_insert()` methods for storing memories.
   ```python
   memory = Memory("chatbot", "conversations", schema)
   memory.insert({"role": "user", "content": "Remember this"})
   ```
 
-* **[Semantic Memory Search:](https://docs.pixeltable.com/docs/datastore/embedding-index)** Built-in similarity search across your memory store.
+**[Semantic Memory Search:](https://docs.pixeltable.com/docs/datastore/embedding-index)** Built-in similarity search across your memory store.
   ```python
   # Find memories similar to current input
   similarity = memory.content.similarity("user's question")
   relevant_memories = memory.where(similarity >= 0.7).collect()
   ```
 
-* **[Multimodal Memory Types:](https://docs.pixeltable.com/docs/datastore/bringing-data)** Store and search across all data modalities.
+**[Multimodal Memory Types:](https://docs.pixeltable.com/docs/datastore/bringing-data)** Store and search across all data modalities.
   ```python
   multimodal_schema = {
       'text': pxt.String,
@@ -99,13 +99,13 @@ Pixelmemory leverages Pixeltable's powerful declarative data infrastructure to p
   }
   ```
 
-* **[Flexible Memory Organization:](https://docs.pixeltable.com/docs/datastore/views)** Namespace and organize memories by agent, user, or conversation.
+**[Flexible Memory Organization:](https://docs.pixeltable.com/docs/datastore/views)** Namespace and organize memories by agent, user, or conversation.
   ```python
   user_memory = Memory("agent_1", "user_123_history", schema)
   global_memory = Memory("agent_1", "knowledge_base", schema)
   ```
 
-* **[Advanced Querying:](https://docs.pixeltable.com/docs/datastore/filtering-and-selecting)** Combine semantic search with filters and temporal queries.
+**[Advanced Querying:](https://docs.pixeltable.com/docs/datastore/filtering-and-selecting)** Combine semantic search with filters and temporal queries.
   ```python
   recent_relevant = (
       memory
@@ -115,7 +115,7 @@ Pixelmemory leverages Pixeltable's powerful declarative data infrastructure to p
   )
   ```
 
-* **[Direct Pixeltable Access:](https://docs.pixeltable.com/docs/datastore/custom-functions)** Full database power when you need advanced functionality.
+**[Direct Pixeltable Access:](https://docs.pixeltable.com/docs/datastore/custom-functions)** Full database power when you need advanced functionality.
   ```python
   # Memory object forwards to underlying Pixeltable table
   memory.show()  # Display memories
