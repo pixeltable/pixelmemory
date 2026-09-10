@@ -12,6 +12,7 @@ from .context import (
 from .config import (
     ChunkView,
     FrameView,
+    SearchTarget,
 )
 from .vision import (
     get_vision_function,
@@ -62,6 +63,8 @@ def setup_vision_indexing(
     embed_model: pxt.Function,
     index_name: str,
     col_settings: Image,
+    memory_instance: Optional[Memory] = None,
+    context_id: Optional[str] = None,
 ) -> None:
     vision_func = get_vision_function(col_settings.provider)
     vision_args = prepare_vision_args(
@@ -83,6 +86,15 @@ def setup_vision_indexing(
         embedding=embed_model,
         if_exists="ignore",
     )
+    if memory_instance is not None:
+        memory_instance.resources.search_targets.append(
+            SearchTarget(
+                context_id=context_id,
+                table=target_obj,
+                column=description_col_name,
+                index_name=index_name,
+            )
+        )
 
     if col_settings.use_clip:
         from pixeltable.functions.huggingface import clip
@@ -127,6 +139,15 @@ def setup_document_indexing(
     chunk_view.add_embedding_index(
         column="text", idx_name=index_name, embedding=embed_model, if_exists="ignore"
     )
+    memory_instance.resources.search_targets.append(
+        SearchTarget(
+            context_id=col_name,
+            table=chunk_view,
+            column="text",
+            index_name=index_name,
+        )
+    )
+
 
 
 def setup_image_indexing(
@@ -142,6 +163,8 @@ def setup_image_indexing(
         embed_model,
         index_name,
         col_settings,
+        memory_instance=memory_instance,
+        context_id=col_name,
     )
 
 
@@ -214,6 +237,15 @@ def setup_audio_indexing(
     sentence_chunk_view.add_embedding_index(
         column="text", idx_name=index_name, embedding=embed_model, if_exists="ignore"
     )
+    memory_instance.resources.search_targets.append(
+        SearchTarget(
+            context_id=col_name,
+            table=sentence_chunk_view,
+            column="text",
+            index_name=index_name,
+        )
+    )
+
 
 
 def setup_video_indexing(
@@ -280,6 +312,8 @@ def setup_video_indexing(
         embed_model,
         index_name,
         image_col_settings,
+        memory_instance=memory_instance,
+        context_id=f"{col_name}_frames",
     )
 
 
@@ -320,11 +354,29 @@ def setup_string_indexing(
             if_exists="ignore",
         )
 
+        memory_instance.resources.search_targets.append(
+            SearchTarget(
+                context_id=col_name,
+                table=chunk_view,
+                column="text",
+                index_name=index_name,
+            )
+        )
+
         memory_instance.table.add_embedding_index(
             column=col_name,
             idx_name=f"{index_name}_direct",
             embedding=embed_model,
             if_exists="ignore",
+        )
+
+        memory_instance.resources.search_targets.append(
+            SearchTarget(
+                context_id=f'{col_name}_direct',
+                table=memory_instance.table,
+                column=col_name,
+                index_name=f"{index_name}_direct",
+            )
         )
     else:
         memory_instance.table.add_embedding_index(
@@ -332,4 +384,13 @@ def setup_string_indexing(
             idx_name=index_name,
             embedding=embed_model,
             if_exists="ignore",
+        )
+
+        memory_instance.resources.search_targets.append(
+            SearchTarget(
+                context_id=col_name,
+                table=memory_instance.table,
+                column=col_name,
+                index_name=index_name,
+            )
         )

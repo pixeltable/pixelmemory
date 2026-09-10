@@ -66,7 +66,21 @@ class FrameView:
     table: pxt.Table
 
 
-@dataclass
-class IndexedColumn:
-    original_col: str
-    indexed_col: str
+@dataclass(frozen=True)
+class SearchTarget:
+    """One searchable place: a column carrying an embedding index.
+
+    A memory can have several. A chunked document puts its index on the chunk
+    view's `text`; an image puts one on the generated description and optionally
+    a CLIP index on the image itself; a video contributes both its transcript
+    and its frame captions. `Memory.search()` walks these.
+
+    `index_name` is recorded rather than inferred because one column can carry
+    two indexes: chunked text is indexed on the chunk view AND directly on the
+    base column, so a bare `.similarity()` there would be ambiguous.
+    """
+
+    context_id: str
+    table: pxt.Table
+    column: str
+    index_name: str

@@ -22,8 +22,9 @@ os.environ.pop("ANTHROPIC_API_KEY", None)
 
 import pytest  # noqa: E402
 
-# A small model, and one that is never actually loaded: the tests construct
-# schemas and never insert, so no weights are downloaded.
+# A small model. test_construction.py only builds schemas, so nothing is
+# downloaded there; the ranking tests in test_search.py do insert rows and will
+# fetch these weights once. Still no API key either way.
 EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 
