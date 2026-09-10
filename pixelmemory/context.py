@@ -16,6 +16,8 @@ class Context:
     embed: bool = True
     embed_model: Optional[Union[str, pxt.Function]] = "all-mpnet-base-v2"
     index_name: Optional[str] = None
+    required: bool = True
+    """When False, the column accepts nulls. Pixeltable columns are non-nullable by default."""
 
 
 @dataclass
@@ -23,7 +25,7 @@ class Audio(Context):
     transcription_model: str = "whisper-1"
     transcription_kwargs: WhisperParams = field(default_factory=WhisperParams)
     chunk_params: AudioSplitterParams = field(
-        default_factory=lambda: AudioSplitterParams(chunk_duration_sec=30.0)
+        default_factory=lambda: AudioSplitterParams(duration=30.0)
     )
     _pxt_type: pxt.Audio = pxt.Audio
 
@@ -60,7 +62,7 @@ class Video(Context):
     transcription_model: str = "whisper-1"
     transcription_kwargs: WhisperParams = field(default_factory=WhisperParams)
     audio_chunk_params: AudioSplitterParams = field(
-        default_factory=lambda: AudioSplitterParams(chunk_duration_sec=30.0)
+        default_factory=lambda: AudioSplitterParams(duration=30.0)
     )
     provider: Literal["openai", "anthropic"] = "openai"
     model: str = "gpt-4o-mini"

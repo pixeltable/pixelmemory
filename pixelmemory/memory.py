@@ -37,15 +37,15 @@ class Memory:
         self.if_exists = if_exists
 
         self.schema: Dict[str, pxt.ColumnType] = {
-            col.id: col._pxt_type for col in self.context
+            col.id: (col._pxt_type if col.required else col._pxt_type | None)
+            for col in self.context
         }
         self.columns_to_embed: Dict[str, Context] = {
             col.id: col for col in self.context if col.embed
         }
 
         table_path = f"{self.namespace}.{self.table_name}"
-        if self.namespace not in pxt.list_dirs():
-            pxt.create_dir(self.namespace)
+        pxt.create_dir(self.namespace, if_exists="ignore", parents=True)
 
         self.table: pxt.Table = pxt.create_table(
             table_path, schema=self.schema, if_exists=self.if_exists, **kwargs
@@ -116,6 +116,11 @@ class Memory:
         self.table.insert(row_dicts)
 
     def __getattr__(self, name: str) -> Any:
+        # __getattr__ runs whenever normal lookup fails, including while __init__ is
+        # still running or after it raised. Reading self.resources through it would
+        # recurse; bail out to a plain AttributeError instead.
+        if name.startswith("_") or "resources" not in self.__dict__:
+            raise AttributeError(name)
         if hasattr(self.resources.main_table, name):
             return getattr(self.resources.main_table, name)
         raise AttributeError(

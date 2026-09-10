@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from pixelmemory import Memory
 from pixelmemory.context import Text, Image, Video, Audio, Document

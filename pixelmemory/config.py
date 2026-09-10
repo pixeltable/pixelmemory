@@ -20,9 +20,9 @@ SchemaType = Literal[
 
 @dataclass
 class AudioSplitterParams:
-    chunk_duration_sec: float = 30.0
-    overlap_sec: float = 0.0
-    min_chunk_duration_sec: float = 0.0
+    duration: float = 30.0
+    overlap: float = 0.0
+    min_segment_duration: float = 0.0
 
 
 @dataclass
@@ -31,7 +31,7 @@ class DocumentSplitterParams:
     limit: Optional[int] = 300
     overlap: Optional[int] = None
     metadata: str = ""
-    html_skip_tags: list[str] = field(default_factory=lambda: ["nav"])
+    skip_tags: list[str] = field(default_factory=lambda: ["nav"])
     tiktoken_encoding: str = "cl100k_base"
     tiktoken_target_model: Optional[str] = None
 
