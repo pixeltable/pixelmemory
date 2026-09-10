@@ -69,8 +69,9 @@ entry = memory.Entry(content="I love Python programming", user_id="user_123")
 memory.add(entry)
 
 # Semantic search
-similarity = memory.content.similarity("programming languages")
-results = memory.where(similarity >= 0.5).collect()
+results = memory.search("programming languages", min_score=0.5)
+for r in results:
+    print(r["score"], r["text"])
 ```
 
 ## Architecture
@@ -111,8 +112,7 @@ entry = memory.Entry(content="Learning about AI")
 memory.add(entry)
 
 # Semantic search
-sim = memory.content.similarity("artificial intelligence")
-results = memory.where(sim >= 0.3).collect()
+results = memory.search("artificial intelligence", min_score=0.3)
 ```
 
 ### Multimodal Memory

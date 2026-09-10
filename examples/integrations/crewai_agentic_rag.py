@@ -27,19 +27,9 @@ website_knowledge = Memory(
 @tool
 def website_knowledge_tool(search_query: str, limit: int = 5) -> str:
     """Search for relevant information in the website knowledge."""
-    chunk_view = website_knowledge.chunk_views["content"]
-    sim = chunk_view.text.similarity(search_query)
-    results = (
-        chunk_view.order_by(sim, asc=False)
-        .limit(limit)
-        .select(chunk_view.text, chunk_view.doc_id, similarity=sim)
-        .collect()
-    )
+    results = website_knowledge.search(search_query, on="content", limit=limit)
     context = "\n\n".join(
-        [
-            f"Source: {r['doc_id']}\nContent: {r['text']}\nSimilarity: {r['similarity']:.4f}"
-            for r in results
-        ]
+        f"Content: {r['text']}\nSimilarity: {r['score']:.4f}" for r in results
     )
     return context
 

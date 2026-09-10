@@ -91,10 +91,12 @@ def financial_chat(session_id: str, user_text: str, filters: dict = None) -> str
     print(f"💬 User says: '{user_text}'")
     rag_context = ""
     if user_text:
-        chunk_view = kb_mem.chunk_views["report"]
+        # This query filters on metadata as well as ranking, which search()
+        # does not cover, so take the raw view handle instead.
+        chunk_view = kb_mem.views("report")["report"]
 
         # Calculate similarity across all chunks
-        sim = chunk_view.text.similarity(user_text)
+        sim = chunk_view.text.similarity(string=user_text, idx="similarity")
 
         # Start with the base view
         query = chunk_view

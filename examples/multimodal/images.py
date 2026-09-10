@@ -25,7 +25,9 @@ entry = memory.Entry(
 memory.add(entry)
 
 query = "A person on a skateboard"
-sim = memory.image_description.similarity(query)
+# This wants the image itself alongside the caption, which search() does not
+# return, so query the table directly.
+sim = memory.image_description.similarity(string=query, idx="similarity")
 results = (
     memory.order_by(sim, asc=False)
     .limit(3)

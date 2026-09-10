@@ -80,3 +80,35 @@ def test_search_min_score_filters(namespace):
     m.add(m.Entry(body="The cat sat on the mat."))
     assert m.search("cat", min_score=0.0) != []
     assert m.search("cat", min_score=1.1) == []
+
+
+def test_no_positional_similarity_in_examples():
+    """Positional .similarity(query) is deprecated; the keyword form is required.
+
+    A grep test rather than an execution test because most examples need media
+    files or an API key to run.
+    """
+    import pathlib
+    import re
+
+    root = pathlib.Path(__file__).resolve().parent.parent
+    offenders = []
+    for path in list(root.glob("examples/**/*.py")) + [root / "README.md"]:
+        for i, line in enumerate(path.read_text().splitlines(), 1):
+            if re.search(r"\.similarity\((?!string=)", line):
+                offenders.append(f"{path.relative_to(root)}:{i}: {line.strip()}")
+    assert not offenders, "positional .similarity() found:\n" + "\n".join(offenders)
+
+
+def test_examples_do_not_use_chunk_views():
+    """memory.chunk_views[...] never resolved; views()/search() replace it."""
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parent.parent
+    offenders = [
+        f"{p.relative_to(root)}:{i}"
+        for p in list(root.glob("examples/**/*.py")) + [root / "README.md"]
+        for i, line in enumerate(p.read_text().splitlines(), 1)
+        if ".chunk_views[" in line or ".frame_views[" in line
+    ]
+    assert not offenders, "stale chunk_views/frame_views access:\n" + "\n".join(offenders)

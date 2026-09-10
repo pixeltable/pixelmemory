@@ -25,15 +25,8 @@ entry = memory.Entry(
 memory.add(entry)
 
 query = "What are the key growth drivers for Nvidia?"
-chunk_view = memory.chunk_views["document"]
-sim = chunk_view.text.similarity(query)
-results = (
-    chunk_view.order_by(sim, asc=False)
-    .limit(3)
-    .select(chunk_view.text, similarity=sim)
-    .collect()
-)
+results = memory.search(query, on="document", limit=3)
 
 for res in results:
-    print(f"Similarity: {res['similarity']:.4f}")
+    print(f"Similarity: {res['score']:.4f}")
     print(f"Text: {res['text']}\n")

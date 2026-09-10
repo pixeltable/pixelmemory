@@ -160,7 +160,7 @@ def search_items(
         # Apply semantic search if query and search_column are provided
         if query and search_column:
             try:
-                similarity = getattr(mem, search_column).similarity(query)
+                similarity = getattr(mem, search_column).similarity(string=query)
                 q = q.order_by(similarity, asc=False)
             except AttributeError:
                 raise HTTPException(

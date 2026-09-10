@@ -30,20 +30,12 @@ memory.add(entry)
 
 query = "What can you do with Pixeltable?"
 
-# Direct similarity search on text_content column
-sim = memory.text_content.similarity(query)
-results = (
-    memory.where(sim >= 0.1)
-    .order_by(sim, asc=False)
-    .limit(3)
-    .select(memory.text_content, memory.memory_id, similarity=sim)
-    .collect()
-)
+results = memory.search(query, on="text_content", limit=3, min_score=0.1)
 
 print(f"Query: '{query}'")
 print("Search results:")
 for res in results:
-    print(f"Similarity: {res['similarity']:.4f}")
-    print(f"Text: {res['text_content'][:100]}...")
+    print(f"Similarity: {res['score']:.4f}")
+    print(f"Text: {res['text'][:100]}...")
     print(f"ID: {res['memory_id']}")
     print("---")
