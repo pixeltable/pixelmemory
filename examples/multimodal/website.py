@@ -25,15 +25,8 @@ entry = memory.Entry(
 memory.add(entry)
 
 query = "inspirational quotes about life"
-chunk_view = memory.chunk_views["website_content"]
-sim = chunk_view.text.similarity(query)
-results = (
-    chunk_view.order_by(sim, asc=False)
-    .limit(3)
-    .select(chunk_view.text, similarity=sim)
-    .collect()
-)
+results = memory.search(query, on="website_content", limit=3)
 
 for res in results:
-    print(f"Similarity: {res['similarity']:.4f}")
+    print(f"Similarity: {res['score']:.4f}")
     print(f"Text: {res['text']}\n")

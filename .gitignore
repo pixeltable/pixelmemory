@@ -1,7 +1,12 @@
-.venv
-.vscode
-dist
 **/__pycache__
 *.egg-info
-resources/
+*.py[cod]
+.pytest_cache/
 .ruff_cache
+.ruff_cache/
+.venv
+.venv/
+.vscode
+__pycache__/
+dist
+resources/

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core>=2.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [project]
@@ -8,8 +8,8 @@ version = "0.1.0"
 description = "Multimodal Memory for AI Agents and MCP."
 license = "Apache-2.0"
 readme = "README.md"
-requires-python = ">=3.10,<4.0"
-authors = [{ name = "Pixeltable, Inc.", email = "contact@pixeltable.com>" }]
+requires-python = ">=3.11"
+authors = [{ name = "Pixeltable, Inc.", email = "contact@pixeltable.com" }]
 keywords = [
     "data-science", "machine-learning", "database", "ai", "computer-vision",
     "chatbot", "ml", "artificial-intelligence", "feature-engineering", "multimodal",
@@ -22,7 +22,6 @@ classifiers = [
     "Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -31,8 +30,10 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "pixeltable>=0.4.0",
-    "sentence-transformers (>=4.1.0)",
+    "pixeltable>=0.7.6,<0.8",
+    "sentence-transformers>=4.1.0",
+    # DocumentSplitterParams defaults to separators="token_limit", which needs tiktoken.
+    "tiktoken>=0.7",
 ]
 
 [project.urls]
@@ -40,30 +41,28 @@ homepage = "https://pixeltable.com/"
 repository = "https://github.com/pixeltable/pixelmemory"
 documentation = "https://docs.pixeltable.com/docs/libraries/pixelmemory"
 
-
-[tool.poetry]
-requires-poetry = ">=2.0"
-
-[tool.poetry.group.dev]
-optional = true
-
-[tool.poetry.group.dev.dependencies]
-coverage = "^7.4"
-# type checking
-mypy = "^1.13.0"
-# linting
-ruff = "^0.9.7"
-# mkdocs-related
-mkdocs = "^1.6.0"
-mkdocs-material = "^9.5.23"
-mkdocstrings-python = "^1.10.2"
-black = ">=24.4"  # Needed for mkdocs
-
-[tool.uv.sources]
-pixelmemory = { workspace = true }
-
 [dependency-groups]
 dev = [
-    "pixelmemory",
-    "ruff>=0.12.2",
+    "pytest>=8.0",
+    "ruff>=0.12.2,<0.15",
+    # Provider SDKs are optional at runtime (pixelmemory raises a clear ImportError
+    # if you use an Image context without them), but CI must cover the vision paths.
+    "openai>=1.0",
+    "anthropic>=0.40",
+]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+# Pinned explicitly so CI does not change meaning when ruff changes its defaults.
+select = ["E4", "E7", "E9", "F"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+log_cli = false
+# The iterator and vision migrations are verified, not asserted: any surviving
+# deprecated Pixeltable call fails the suite.
+filterwarnings = [
+    "error::pixeltable.exceptions.PixeltableDeprecationWarning",
 ]

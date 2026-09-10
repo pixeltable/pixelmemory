@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from pixelmemory import Memory
 from pixelmemory.context import Text, Image, Video, Audio, Document
@@ -160,7 +160,7 @@ def search_items(
         # Apply semantic search if query and search_column are provided
         if query and search_column:
             try:
-                similarity = getattr(mem, search_column).similarity(query)
+                similarity = getattr(mem, search_column).similarity(string=query)
                 q = q.order_by(similarity, asc=False)
             except AttributeError:
                 raise HTTPException(

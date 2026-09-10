@@ -1,0 +1,52 @@
+name: test
+
+# No `secrets:` block appears anywhere in this file, and that absence is the
+# assertion: the suite must pass with no provider credentials at all. A test that
+# needs a key fails here.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Weekly canary. The install step below takes Pixeltable unpinned, so the
+    # release that breaks pixelmemory turns this build red before a user finds it.
+    - cron: "0 6 * * 1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install
+        run: uv sync --python ${{ matrix.python-version }}
+
+      - name: Take Pixeltable unpinned
+        # Deliberately ignores the `<0.8` pin in pyproject.toml. This is the canary.
+        # Every step after this uses --no-sync, or uv would restore the pinned version.
+        run: uv pip install --upgrade pixeltable
+
+      - name: Record the Pixeltable version under test
+        run: uv run --no-sync python -c "import pixeltable; print(pixeltable.__version__)"
+
+      - name: Lint
+        run: uv run --no-sync ruff check .
+
+      - name: Test
+        env:
+          HF_HUB_DISABLE_PROGRESS_BARS: "1"
+        run: uv run --no-sync python -m pytest tests/ -v

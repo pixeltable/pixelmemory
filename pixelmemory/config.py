@@ -20,9 +20,9 @@ SchemaType = Literal[
 
 @dataclass
 class AudioSplitterParams:
-    chunk_duration_sec: float = 30.0
-    overlap_sec: float = 0.0
-    min_chunk_duration_sec: float = 0.0
+    duration: float = 30.0
+    overlap: float = 0.0
+    min_segment_duration: float = 0.0
 
 
 @dataclass
@@ -31,7 +31,7 @@ class DocumentSplitterParams:
     limit: Optional[int] = 300
     overlap: Optional[int] = None
     metadata: str = ""
-    html_skip_tags: list[str] = field(default_factory=lambda: ["nav"])
+    skip_tags: list[str] = field(default_factory=lambda: ["nav"])
     tiktoken_encoding: str = "cl100k_base"
     tiktoken_target_model: Optional[str] = None
 
@@ -66,7 +66,21 @@ class FrameView:
     table: pxt.Table
 
 
-@dataclass
-class IndexedColumn:
-    original_col: str
-    indexed_col: str
+@dataclass(frozen=True)
+class SearchTarget:
+    """One searchable place: a column carrying an embedding index.
+
+    A memory can have several. A chunked document puts its index on the chunk
+    view's `text`; an image puts one on the generated description and optionally
+    a CLIP index on the image itself; a video contributes both its transcript
+    and its frame captions. `Memory.search()` walks these.
+
+    `index_name` is recorded rather than inferred because one column can carry
+    two indexes: chunked text is indexed on the chunk view AND directly on the
+    base column, so a bare `.similarity()` there would be ambiguous.
+    """
+
+    context_id: str
+    table: pxt.Table
+    column: str
+    index_name: str
