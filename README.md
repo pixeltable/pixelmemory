@@ -185,6 +185,59 @@ All examples use the context-based API and are ready to run:
 
 **Remember**: Pixelmemory is a reference implementation. Use it as inspiration to build your own memory architecture using [Pixeltable's](https://github.com/pixeltable/pixeltable) flexible primitives.
 
+## Migrating from 0.1.x
+
+0.2.0 runs on Pixeltable 0.7.6. On 0.5.6+ the Document, Audio and Video
+memories raised on construction, so most of 0.1.x did not work. Upgrade with
+`pip install -U pixelmemory`.
+
+Three things changed for callers:
+
+- **Python 3.11+ is required.** Pixeltable dropped 3.10 in 0.7.2.
+- **Two splitter parameter dataclasses are renamed.** `AudioSplitterParams`
+  takes `duration` / `overlap` / `min_segment_duration` (was
+  `chunk_duration_sec` / `overlap_sec` / `min_chunk_duration_sec`), and
+  `DocumentSplitterParams` takes `skip_tags` (was `html_skip_tags`). These
+  names are passed straight through to Pixeltable's iterators, so they are the
+  API rather than a naming choice, and the old ones were the bug.
+- **`memory.chunk_views[...]` and `memory.frame_views[...]` are replaced by
+  `memory.search()` and `memory.views()`.** Nothing breaks in practice:
+  `chunk_views` is a list on `resources`, not a mapping on `Memory`, so those
+  subscripts always raised `AttributeError`.
+
+```python
+# before -- raised AttributeError
+chunk_view = memory.chunk_views["report"]
+sim = chunk_view.text.similarity(query)
+results = (chunk_view.order_by(sim, asc=False).limit(3)
+           .select(chunk_view.text, similarity=sim).collect())
+
+# after
+results = memory.search(query, on="report", limit=3)
+```
+
+`Memory(...)`, `memory.Entry`, `memory.add()`, the attribute passthrough and
+every other `Context` field name are unchanged.
+
+One behaviour change worth knowing: views and indexes now survive
+reconstruction. Building the same `Memory` twice used to drop and rebuild
+every view and index, re-running transcription and re-embedding everything.
+
+## When not to use pixelmemory
+
+If your memory schema is fixed when you write the code, you do not need a
+wrapper. Declare it directly with Pixeltable's `TableModel` and
+`FastAPIRouter` and run `pxt schema update` / `pxt service update`; the
+[starter kit](https://github.com/pixeltable/pixeltable-starter-kit) has
+working apps in that shape.
+
+pixelmemory earns its keep when the schema is chosen at **runtime** -- when
+the `Context` list comes from a config file or a request -- and for the
+multimodal ingest pipelines it wires up for you: audio to segments to
+transcription to sentences to embeddings, and video to frames plus captions,
+in the right dependency order.
+
+
 ## License
 
 Apache 2.0 License
