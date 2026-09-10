@@ -82,6 +82,22 @@ def test_search_min_score_filters(namespace):
     assert m.search("cat", min_score=1.1) == []
 
 
+def _scannable(path):
+    """File text with the migration guide stripped out.
+
+    A "Migrating from 0.1.x" section has to quote the old, broken calls to show
+    what to replace, so scanning it for those calls would always fail.
+    """
+    text = path.read_text()
+    marker = "## Migrating from 0.1.x"
+    if marker not in text:
+        return text
+    head, rest = text.split(marker, 1)
+    # resume scanning at the next top-level heading after the migration section
+    tail = rest.split("\n## ", 1)
+    return head + (tail[1] if len(tail) > 1 else "")
+
+
 def test_no_positional_similarity_in_examples():
     """Positional .similarity(query) is deprecated; the keyword form is required.
 
@@ -94,7 +110,7 @@ def test_no_positional_similarity_in_examples():
     root = pathlib.Path(__file__).resolve().parent.parent
     offenders = []
     for path in list(root.glob("examples/**/*.py")) + [root / "README.md"]:
-        for i, line in enumerate(path.read_text().splitlines(), 1):
+        for i, line in enumerate(_scannable(path).splitlines(), 1):
             if re.search(r"\.similarity\((?!string=)", line):
                 offenders.append(f"{path.relative_to(root)}:{i}: {line.strip()}")
     assert not offenders, "positional .similarity() found:\n" + "\n".join(offenders)
@@ -108,7 +124,7 @@ def test_examples_do_not_use_chunk_views():
     offenders = [
         f"{p.relative_to(root)}:{i}"
         for p in list(root.glob("examples/**/*.py")) + [root / "README.md"]
-        for i, line in enumerate(p.read_text().splitlines(), 1)
+        for i, line in enumerate(_scannable(p).splitlines(), 1)
         if ".chunk_views[" in line or ".frame_views[" in line
     ]
     assert not offenders, "stale chunk_views/frame_views access:\n" + "\n".join(offenders)

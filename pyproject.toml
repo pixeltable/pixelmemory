@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "pixelmemory"
-version = "0.1.0"
+version = "0.2.0"
 description = "Multimodal Memory for AI Agents and MCP."
 license = "Apache-2.0"
 readme = "README.md"

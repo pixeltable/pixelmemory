@@ -33,7 +33,7 @@ jobs:
           enable-cache: true
 
       - name: Install
-        run: uv sync --python ${{ matrix.python-version }}
+        run: uv sync --locked --python ${{ matrix.python-version }}
 
       - name: Take Pixeltable unpinned
         # Deliberately ignores the `<0.8` pin in pyproject.toml. This is the canary.
