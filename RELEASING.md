@@ -28,7 +28,8 @@ Publishing uses PyPI Trusted Publishing. PyPI mints a short-lived credential
 from the workflow's OIDC identity, so there is no long-lived secret to leak,
 rotate, or paste into a shell.
 
-One-time setup, on PyPI under **Manage project -> Publishing -> Add a pending publisher**:
+One-time setup, on PyPI under **Manage project -> Publishing**, add a GitHub
+publisher to the existing `pixelmemory` project:
 
 | field | value |
 |---|---|

@@ -9,7 +9,7 @@ name: Release
 # rotate, or paste into a shell. The previous scripts/release.sh read one out of
 # ~/.pixeltable/config.toml.
 #
-# One-time setup on PyPI (Manage project -> Publishing -> Add a pending publisher):
+# One-time setup on PyPI (Manage project -> Publishing -> add a GitHub publisher):
 #   owner: pixeltable   repository: pixelmemory
 #   workflow: release.yml   environment: pypi
 

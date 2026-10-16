@@ -208,11 +208,47 @@ All examples use the context-based API and are ready to run:
 
 ## Migrating from 0.1.x
 
-0.2.0 runs on Pixeltable 0.7.17+. On 0.5.6+ the Document, Audio and Video
-memories raised on construction, so most of 0.1.x did not work. Upgrade with
+0.2.0 requires Python 3.11+ and Pixeltable 0.7.17+. It introduces a
+context-based API. After the release is published, upgrade with
 `pip install -U pixelmemory`.
 
-Three things changed for callers:
+### From the published 0.1.0 package
+
+The 0.1.0 wheel on PyPI has a conversation-only API. Its constructor, insertion
+arguments and search result format differ from 0.2.0:
+
+| Published 0.1.0 | 0.2.0 |
+| --- | --- |
+| `Memory()` or `Memory(embedding_model="...")` | `Memory(context=[Text(id="content", embed_model="...")], namespace="user_123_memory")` |
+| `memory.add(messages, user_id="user_123")` | `memory.add(memory.Entry(content=conversation))` |
+| `memory.search(query, user_id="user_123")["results"]` | `memory.search(query)` returns a list; use a separate namespace for each user |
+| Result keys `memory` and `similarity` | Result keys `text` and `score`, plus `context_id` |
+
+For example, to store the same conversation text:
+
+```python
+from pixelmemory import Memory
+from pixelmemory.context import Text
+
+memory = Memory([Text(id="content")], namespace="user_123_memory")
+messages = [{"role": "user", "content": "I enjoy programming."}]
+conversation = " ".join(f"{m['role']}: {m['content']}" for m in messages)
+memory.add(memory.Entry(content=conversation))
+for result in memory.search("programming"):
+    print(result["text"], result["score"])
+```
+
+Existing `pixelmemory_<user_id>` tables remain separate; 0.2.0 does not
+automatically import their rows. Export or back up their `timestamp`, `memory`
+and `metadata` columns through Pixeltable before migrating data into a new
+namespace. Declare additional contexts if you want to retain those fields;
+use raw table/view queries to retrieve source metadata alongside search hits.
+
+### From the unreleased context-based repository API
+
+If you installed the repository rather than the PyPI wheel, the context API
+was already present. Its Document, Audio and Video pipelines used removed
+Pixeltable iterator arguments. The relevant changes are:
 
 - **Python 3.11+ is required.** Pixeltable dropped 3.10 in 0.7.2.
 - **Two splitter parameter dataclasses are renamed.** `AudioSplitterParams`
@@ -237,8 +273,8 @@ results = (chunk_view.order_by(sim, asc=False).limit(3)
 results = memory.search(query, on="report", limit=3)
 ```
 
-`Memory(...)`, `memory.Entry`, `memory.add()` and the attribute passthrough
-keep the same API. Use `required=False` for a nullable context; its Entry field
+For that repository API, `Memory(...)`, `memory.Entry`, `memory.add()` and the
+attribute passthrough keep the same shape. Use `required=False` for a nullable context; its Entry field
 can be omitted and defaults to `None`. Optional contexts can also be embedded.
 
 Embedding index names are scoped to each context so multiple embedded fields
