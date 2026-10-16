@@ -13,23 +13,39 @@ urls = [
 
 context = [
     Text(id="doc_id", embed=False),
-    Document(id="content", chunk_params=DocumentSplitterParams(separators="token_limit", limit=400, overlap=40)),
+    Document(
+        id="content",
+        chunk_params=DocumentSplitterParams(
+            separators="token_limit", limit=400, overlap=40
+        ),
+    ),
 ]
 
 website_knowledge = Memory(
     context=context,
     namespace="crewai_rag_example",
     table_name="web_pages",
-    if_exists="replace_force"
+    if_exists="ignore",
 )
 
 
 @tool
 def website_knowledge_tool(search_query: str, limit: int = 5) -> str:
     """Search for relevant information in the website knowledge."""
-    results = website_knowledge.search(search_query, on="content", limit=limit)
+    target = next(
+        t for t in website_knowledge.search_targets if t.context_id == "content"
+    )
+    chunks = target.table
+    score = chunks.text.similarity(string=search_query, idx=target.index_name)
+    results = (
+        chunks.order_by(score, asc=False)
+        .limit(limit)
+        .select(chunks.text, chunks.doc_id, score=score)
+        .collect()
+    )
     context = "\n\n".join(
-        f"Content: {r['text']}\nSimilarity: {r['score']:.4f}" for r in results
+        f"Source: {r['doc_id']}\nContent: {r['text']}\nSimilarity: {r['score']:.4f}"
+        for r in results
     )
     return context
 
@@ -62,8 +78,9 @@ crew = Crew(
 )
 
 # Add knowledge to memory
-entries = [website_knowledge.Entry(doc_id=url, content=url) for url in urls]
-website_knowledge.add(*entries)
+if website_knowledge.count() == 0:
+    entries = [website_knowledge.Entry(doc_id=url, content=url) for url in urls]
+    website_knowledge.add(*entries)
 
 # Kickoff crew
 question = "What is reward hacking and what are some examples? Provide sources."

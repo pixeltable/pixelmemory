@@ -5,22 +5,18 @@ from datetime import datetime
 
 context = [
     Text(id="memory_id", embed=False),
-    Video(id="video", provider="openai", model="gpt-4o-mini", embed_model="text-embedding-3-small"),
+    Video(id="video", provider="openai", model="gpt-4o-mini"),
     Text(id="inserted_at", embed=False),
 ]
 
 memory = Memory(
-    context=context,
-    namespace="video_memory_example",
-    table_name="video_files"
+    context=context, namespace="video_memory_example", table_name="video_files"
 )
 
 video_url = "https://github.com/pixeltable/pixeltable/raw/release/docs/resources/audio-transcription-demo/Lex-Fridman-Podcast-430-Excerpt-0.mp4"
 
 entry = memory.Entry(
-    memory_id=str(uuid.uuid4()),
-    video=video_url,
-    inserted_at=str(datetime.now())
+    memory_id=str(uuid.uuid4()), video=video_url, inserted_at=str(datetime.now())
 )
 memory.add(entry)
 

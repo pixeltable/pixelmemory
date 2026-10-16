@@ -20,7 +20,7 @@ def test_search_targets_registered(namespace):
     targets = m.search_targets
     assert [t.context_id for t in targets] == ["body"]
     # idx_name is recorded, not inferred: one column can carry two indexes.
-    assert targets[0].index_name == "similarity"
+    assert targets[0].index_name == "body_similarity"
     assert targets[0].column == "body"
 
 

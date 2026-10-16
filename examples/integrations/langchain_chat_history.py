@@ -1,4 +1,6 @@
 # pip install langchain-openai langchain pixelmemory
+import json
+
 from pixelmemory import Memory
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import (
@@ -17,19 +19,11 @@ context = [
     Text(id="messages", embed=False),
 ]
 
-mem = Memory(
-    context=context,
-    namespace="langchain_memory",
-    table_name="chat_history",
-    if_exists="replace_force"
-)
-
-# 2. Initialize the LangChain model
-model = init_chat_model("gpt-4o-mini", model_provider="openai")
-
 
 # 3. Create a simple chat function with persistent memory
 def chat(
+    mem: Memory,
+    model,
     session_id: str,
     user_input: str,
     system_prompt: str = "You are a helpful assistant.",
@@ -44,7 +38,7 @@ def chat(
         .collect()
     )
     messages = (
-        messages_from_dict(history[0]["messages"])
+        messages_from_dict(json.loads(history[0]["messages"]))
         if history
         else [SystemMessage(system_prompt)]
     )
@@ -55,23 +49,30 @@ def chat(
     messages.append(ai_response)
 
     # Save the updated history back to PixelMemory
-    entry = mem.Entry(session_id=session_id, messages=str(messages_to_dict(messages)))
-    mem.add(entry)
+    serialized = json.dumps(messages_to_dict(messages))
+    if history:
+        mem.update({"messages": serialized}, where=mem.session_id == session_id)
+    else:
+        mem.add(mem.Entry(session_id=session_id, messages=serialized))
 
     return ai_response
 
 
-# 4. Demonstrate the conversation
-SESSION_ID = "user_123"
-print("--- Conversation Turn 1 ---")
-response1 = chat(SESSION_ID, "Hi! I'm Bob and I live in Paris.")
-print(f"AI: {response1.content}")
+if __name__ == "__main__":
+    mem = Memory(
+        context=context, namespace="langchain_memory", table_name="chat_history"
+    )
+    model = init_chat_model("gpt-4o-mini", model_provider="openai")
 
-print("\n--- Conversation Turn 2 (Memory in action) ---")
-response2 = chat(SESSION_ID, "What's my name and where do I live?")
-print(f"AI: {response2.content}")
+    SESSION_ID = "user_123"
+    print("--- Conversation Turn 1 ---")
+    response1 = chat(mem, model, SESSION_ID, "Hi! I'm Bob and I live in Paris.")
+    print(f"AI: {response1.content}")
 
-# Verify that a new session is independent
-print("\n--- New Conversation (Session user_456) ---")
-response3 = chat("user_456", "What's my name?")
-print(f"AI: {response3.content}")
+    print("\n--- Conversation Turn 2 (Memory in action) ---")
+    response2 = chat(mem, model, SESSION_ID, "What's my name and where do I live?")
+    print(f"AI: {response2.content}")
+
+    print("\n--- New Conversation (Session user_456) ---")
+    response3 = chat(mem, model, "user_456", "What's my name?")
+    print(f"AI: {response3.content}")

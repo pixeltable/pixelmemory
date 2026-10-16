@@ -1,7 +1,13 @@
-# uv pip install langchain-openai pixelmemory httpx "unstructured[pdf]"
+# uv pip install langchain langchain-openai pixelmemory
 from pixelmemory import Memory
 from langchain.chat_models import init_chat_model
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+from langchain_core.messages import (
+    HumanMessage,
+    SystemMessage,
+    messages_from_dict,
+    messages_to_dict,
+)
+import json
 import uuid
 
 # --- 1. Setup: Create two PixelMemory instances ---
@@ -18,54 +24,25 @@ kb_context = [
     Text(id="year", embed=False),
 ]
 
-kb_mem = Memory(
-    context=kb_context,
-    namespace="financial_kb",
-    table_name="reports",
-    if_exists="replace_force"
-)
-
 # Conversation History Memory
 chat_context = [
     Text(id="session_id", embed=False),
     Text(id="messages", embed=False),
 ]
 
-chat_mem = Memory(
-    context=chat_context,
-    namespace="financial_chat",
-    table_name="history",
-    if_exists="replace_force"
-)
-
 # --- 2. Populate the Knowledge Base ---
 # We'll use a sample Zacks Nvidia financial report and a fictional AMD report.
 REPORT_URL_NVDA = "https://raw.githubusercontent.com/pixeltable/pixeltable/main/docs/resources/rag-demo/Zacks-Nvidia-Report.pdf"
 
-entries = [
-    kb_mem.Entry(
-        doc_id="zacks-nvidia-report",
-        report=REPORT_URL_NVDA,
-        company="Nvidia",
-        report_type="Equity Research",
-        year="2024"
-    ),
-    kb_mem.Entry(
-        doc_id="fictional-amd-report",
-        report=REPORT_URL_NVDA,  # Using same PDF for demo purposes
-        company="AMD",
-        report_type="Earnings Call Transcript",
-        year="2023"
-    )
-]
-kb_mem.add(*entries)
-print("📚 Knowledge base populated with financial reports.")
 
-# --- 3. The RAG Agent Logic ---
-llm = init_chat_model("gpt-4o-mini", model_provider="openai")
-
-
-def financial_chat(session_id: str, user_text: str, filters: dict = None) -> str:
+def financial_chat(
+    kb_mem: Memory,
+    chat_mem: Memory,
+    llm,
+    session_id: str,
+    user_text: str,
+    filters: dict | None = None,
+) -> str:
     """
     Handles a turn in a financial RAG conversation, with optional metadata filtering.
     """
@@ -79,13 +56,7 @@ def financial_chat(session_id: str, user_text: str, filters: dict = None) -> str
         )
     ]
     if history_data:
-        messages.extend(
-            [
-                AIMessage(m["content"])
-                for m in history_data[0]["messages"]
-                if m["type"] == "ai"
-            ]
-        )
+        messages = messages_from_dict(json.loads(history_data[0]["messages"]))
 
     # b. Augment with RAG: Search the knowledge base
     print(f"💬 User says: '{user_text}'")
@@ -96,7 +67,8 @@ def financial_chat(session_id: str, user_text: str, filters: dict = None) -> str
         chunk_view = kb_mem.views("report")["report"]
 
         # Calculate similarity across all chunks
-        sim = chunk_view.text.similarity(string=user_text, idx="similarity")
+        target = next(t for t in kb_mem.search_targets if t.context_id == "report")
+        sim = chunk_view.text.similarity(string=user_text, idx=target.index_name)
 
         # Start with the base view
         query = chunk_view
@@ -136,37 +108,50 @@ def financial_chat(session_id: str, user_text: str, filters: dict = None) -> str
 
     # e. Save updated history
     updated_messages = messages + [ai_response]
-    entry = chat_mem.Entry(
-        session_id=session_id,
-        messages=str([m.dict() for m in updated_messages])
-    )
-    chat_mem.add(entry)
+    serialized = json.dumps(messages_to_dict(updated_messages))
+    if history_data:
+        chat_mem.update(
+            {"messages": serialized}, where=chat_mem.session_id == session_id
+        )
+    else:
+        chat_mem.add(chat_mem.Entry(session_id=session_id, messages=serialized))
     print("💾 Saved conversation history.")
 
     return ai_response.content
 
 
-# --- 4. Run a Sample Support Conversation ---
-SESSION_ID = f"financial_session_{uuid.uuid4()}"
-
-# Turn 1: User asks a general question (searches all documents)
-response1 = financial_chat(
-    SESSION_ID, "What is the general outlook for the semiconductor industry?"
-)
-print(f"\n🤖 AI Response: {response1}")
-
-# Turn 2: User asks a specific question about Nvidia, filtering by company
-response2 = financial_chat(
-    SESSION_ID,
-    "What are the key growth drivers for them?",
-    filters={"company": "Nvidia"},
-)
-print(f"\n🤖 AI Response: {response2}")
-
-# Turn 3: User asks about a different type of report from 2023
-response3 = financial_chat(
-    SESSION_ID,
-    "What was discussed in the earnings call?",
-    filters={"report_type": "Earnings Call Transcript", "year": 2023},
-)
-print(f"\n🤖 AI Response: {response3}")
+if __name__ == "__main__":
+    kb_mem = Memory(context=kb_context, namespace="financial_kb", table_name="reports")
+    chat_mem = Memory(
+        context=chat_context, namespace="financial_chat", table_name="history"
+    )
+    # Only populate an empty store; rerunning the example retains the knowledge base.
+    if kb_mem.count() == 0:
+        kb_mem.add(
+            kb_mem.Entry(
+                doc_id="zacks-nvidia-report",
+                report=REPORT_URL_NVDA,
+                company="Nvidia",
+                report_type="Equity Research",
+                year="2024",
+            ),
+            kb_mem.Entry(
+                doc_id="fictional-amd-report",
+                report=REPORT_URL_NVDA,
+                company="AMD",
+                report_type="Earnings Call Transcript",
+                year="2023",
+            ),
+        )
+    llm = init_chat_model("gpt-4o-mini", model_provider="openai")
+    SESSION_ID = f"financial_session_{uuid.uuid4()}"
+    for question, filters in [
+        ("What is the general outlook for the semiconductor industry?", None),
+        ("What are the key growth drivers for them?", {"company": "Nvidia"}),
+        (
+            "What was discussed in the earnings call?",
+            {"report_type": "Earnings Call Transcript", "year": "2023"},
+        ),
+    ]:
+        response = financial_chat(kb_mem, chat_mem, llm, SESSION_ID, question, filters)
+        print(f"\n🤖 AI Response: {response}")

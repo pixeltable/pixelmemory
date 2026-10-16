@@ -10,7 +10,7 @@ on:
   pull_request:
   workflow_dispatch:
   schedule:
-    # Weekly canary. The install step below takes Pixeltable unpinned, so the
+    # Weekly canary. One matrix entry takes Pixeltable unpinned, so the
     # release that breaks pixelmemory turns this build red before a user finds it.
     - cron: "0 6 * * 1"
 
@@ -24,7 +24,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
+        dependencies: [locked]
+        include:
+          - python-version: "3.12"
+            dependencies: latest
     steps:
       - uses: actions/checkout@v4
 
@@ -36,12 +40,17 @@ jobs:
         run: uv sync --locked --python ${{ matrix.python-version }}
 
       - name: Take Pixeltable unpinned
+        if: matrix.dependencies == 'latest'
         # Deliberately ignores the `<0.8` pin in pyproject.toml. This is the canary.
         # Every step after this uses --no-sync, or uv would restore the pinned version.
-        run: uv pip install --upgrade pixeltable
+        run: uv pip install --python .venv/bin/python --upgrade pixeltable
 
       - name: Record the Pixeltable version under test
         run: uv run --no-sync python -c "import pixeltable; print(pixeltable.__version__)"
+
+      - name: Check installed dependencies
+        if: matrix.dependencies == 'locked'
+        run: uv pip check --python .venv/bin/python
 
       - name: Lint
         run: uv run --no-sync ruff check .

@@ -47,7 +47,23 @@ Most AI applications today are stateless - they forget everything between sessio
 pip install pixelmemory
 ```
 
-*Note: Pixeltable is automatically installed as a dependency - no additional setup required.*
+Python 3.11+ is required. Pixelmemory 0.2.0 uses Pixeltable 0.7.17+ (below
+0.8) and sentence-transformers 5.4+. Both are installed automatically. The
+default local embedding model downloads its weights on first use.
+
+Install the extras for the contexts you use:
+
+| Context | Additional setup |
+| --- | --- |
+| Text, Document | None for direct text search and token-based document chunks |
+| Text with `use_chunking=True` | `pip install 'pixelmemory[sentence]'`, then `python -m spacy download en_core_web_sm` |
+| Image | `pip install 'pixelmemory[openai]'` and `OPENAI_API_KEY`, or `pixelmemory[anthropic]` and `ANTHROPIC_API_KEY` |
+| Audio, Video | `pip install 'pixelmemory[openai,sentence]'`, `OPENAI_API_KEY`, and `python -m spacy download en_core_web_sm` |
+
+Video uses OpenAI transcription even when frame captions use Anthropic. Add
+the `anthropic` extra and key for that configuration. `use_clip=True` also
+requires a compatible `torchvision` installation and downloads CLIP weights.
+Document splitting with `separators="sentence"` needs the same sentence setup.
 
 ## Quick Start
 
@@ -73,6 +89,10 @@ results = memory.search("programming languages", min_score=0.5)
 for r in results:
     print(r["score"], r["text"])
 ```
+
+`search()` returns `context_id`, `text` and `score`. It searches text columns,
+document chunks, transcripts and image/frame captions. Use `memory.views()`
+and raw Pixeltable queries when you need source metadata or a CLIP index.
 
 ## Architecture
 
@@ -155,7 +175,7 @@ def chat_with_memory(session_id: str, message: str):
 
 All examples use the context-based API and are ready to run:
 
-**Basic Examples** (no external dependencies):
+**Basic Examples** (local embedding model; no provider key):
 - `examples/getting_started/01_basic_memory.py`
 - `examples/multimodal/text.py`
 
@@ -168,6 +188,7 @@ All examples use the context-based API and are ready to run:
 - `examples/integrations/langchain_chat_history.py` (requires OpenAI API key)
 - `examples/integrations/crewai_agentic_rag.py` (requires `pip install crewai`)
 - `examples/fastapi/memory_service.py` (requires `pip install fastapi uvicorn`)
+- `examples/mcp/memory.py` (requires `pip install 'mcp>=2.3'`; serves task tools over Streamable HTTP)
 
 
 ## Next Steps
@@ -187,7 +208,7 @@ All examples use the context-based API and are ready to run:
 
 ## Migrating from 0.1.x
 
-0.2.0 runs on Pixeltable 0.7.6. On 0.5.6+ the Document, Audio and Video
+0.2.0 runs on Pixeltable 0.7.17+. On 0.5.6+ the Document, Audio and Video
 memories raised on construction, so most of 0.1.x did not work. Upgrade with
 `pip install -U pixelmemory`.
 
@@ -216,12 +237,43 @@ results = (chunk_view.order_by(sim, asc=False).limit(3)
 results = memory.search(query, on="report", limit=3)
 ```
 
-`Memory(...)`, `memory.Entry`, `memory.add()`, the attribute passthrough and
-every other `Context` field name are unchanged.
+`Memory(...)`, `memory.Entry`, `memory.add()` and the attribute passthrough
+keep the same API. Use `required=False` for a nullable context; its Entry field
+can be omitted and defaults to `None`. Optional contexts can also be embedded.
+
+Embedding index names are scoped to each context so multiple embedded fields
+work together. Existing legacy indexes are reused. For a raw Pixeltable query,
+read the index name from `memory.search_targets` instead of assuming
+`"similarity"`; `memory.search()` selects it for you.
 
 One behaviour change worth knowing: views and indexes now survive
 reconstruction. Building the same `Memory` twice used to drop and rebuild
 every view and index, re-running transcription and re-embedding everything.
+
+Reopen a memory with the same context configuration. Reopening does not update
+existing computed expressions, splitter settings or embedding models. Use
+Pixeltable's explicit schema/index APIs for those changes, or a new namespace;
+`if_exists="replace_force"` deletes the existing table and dependent views.
+
+## Development and verification
+
+```bash
+uv sync --locked --python 3.12
+uv run ruff check .
+uv run python -m pytest
+uv build
+```
+
+Tests use an isolated catalog and remove provider credentials. They cover real
+Pixeltable inserts, search, reconstruction, and multimodal iterators. Provider
+responses are simulated in multimodal tests; text ranking also runs a real
+local sentence-transformers model. Sentence tests use spaCy's local sentencizer
+without downloading the English model. Live provider compatibility requires
+separate credentialed testing.
+
+CI tests the locked dependencies on Python 3.11–3.13 and an unpinned Pixeltable
+canary on Python 3.12. The release workflow verifies the installed wheel from
+outside the source tree before publishing. See [RELEASING.md](RELEASING.md).
 
 ## When not to use pixelmemory
 

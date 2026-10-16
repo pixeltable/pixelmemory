@@ -1,12 +1,17 @@
 from typing import Dict, Any, Literal, List, Union, Optional, TYPE_CHECKING
-from dataclasses import dataclass, make_dataclass, asdict
+from dataclasses import dataclass, field, make_dataclass, asdict
+import keyword
+import math
+from numbers import Real
 import pixeltable as pxt
+from pixeltable.catalog import Column
+from pixeltable.type_system import ColumnType
 from .config import (
     ChunkView,
     FrameView,
     SearchTarget,
 )
-from .context import Context
+from .context import Audio, Context, Image, Video
 
 if TYPE_CHECKING:
     from dataclasses import dataclass as _dataclass_base
@@ -31,18 +36,77 @@ class Memory:
         if_exists: Literal["ignore", "error", "replace_force"] = "ignore",
         **kwargs,
     ):
+        context_ids = set()
+        for col in context:
+            if not isinstance(col, Context) or not hasattr(col, "_pxt_type"):
+                raise TypeError("Use a Text, Image, Audio, Video, or Document context.")
+            if (
+                not isinstance(col.id, str)
+                or not col.id.isidentifier()
+                or keyword.iskeyword(col.id)
+            ):
+                raise ValueError(f"Invalid context id: {col.id!r}")
+            Column.validate_name(col.id)
+            if col.id.casefold() in context_ids:
+                raise ValueError(f"Duplicate context id: {col.id!r}")
+            context_ids.add(col.id.casefold())
+        base_column_names = set(context_ids)
+        for col in context:
+            suffixes = ()
+            if col.embed and isinstance(col, Image):
+                suffixes = ("_response", "_description")
+            elif col.embed and isinstance(col, Video):
+                suffixes = ("_audio",)
+            for suffix in suffixes:
+                generated_name = f"{col.id}{suffix}"
+                if generated_name.casefold() in context_ids:
+                    raise ValueError(
+                        f"Context id {generated_name!r} conflicts with a generated column "
+                        f"for {col.id!r}. Use a different context id."
+                    )
+                base_column_names.add(generated_name.casefold())
+        for col in context:
+            if not col.embed:
+                continue
+            generated_view_columns = []
+            if isinstance(col, (Audio, Video)):
+                generated_view_columns.append(f"{col.id}_transcription")
+            if isinstance(col, Video):
+                generated_view_columns.extend(("frame_response", "frame_description"))
+            for generated_name in generated_view_columns:
+                if generated_name.casefold() in base_column_names:
+                    raise ValueError(
+                        f"Column {generated_name!r} conflicts with a generated view column "
+                        f"for {col.id!r}. Use a different context id."
+                    )
+
         self.namespace = namespace
         self.table_name = table_name
         self.context = context
         self.if_exists = if_exists
 
-        self.schema: Dict[str, pxt.ColumnType] = {
+        self.schema: Dict[str, Any] = {
             col.id: (col._pxt_type if col.required else col._pxt_type | None)
             for col in self.context
         }
         self.columns_to_embed: Dict[str, Context] = {
             col.id: col for col in self.context if col.embed
         }
+        entry_fields = []
+        has_required_after = False
+        for col in reversed(self.context):
+            if col.required:
+                entry_fields.append((col.id, Any))
+                has_required_after = True
+            else:
+                entry_fields.append(
+                    (col.id, Any, field(default=None, kw_only=has_required_after))
+                )
+        self.Entry = make_dataclass(
+            "MemoryEntry",
+            list(reversed(entry_fields)),
+            bases=(_dataclass_base,),
+        )
 
         table_path = f"{self.namespace}.{self.table_name}"
         pxt.create_dir(self.namespace, if_exists="ignore", parents=True)
@@ -50,6 +114,23 @@ class Memory:
         self.table: pxt.Table = pxt.create_table(
             table_path, schema=self.schema, if_exists=self.if_exists, **kwargs
         )
+        stored_columns = {
+            name: metadata
+            for name, metadata in self.table.get_metadata()["columns"].items()
+            if not metadata["is_computed"]
+        }
+        requested_columns = {
+            name.casefold(): spec for name, spec in self.schema.items()
+        }
+        if set(stored_columns) != set(requested_columns) or any(
+            self.table[name].col_type != ColumnType.normalize_type(spec)
+            for name, spec in requested_columns.items()
+            if name in stored_columns
+        ):
+            raise ValueError(
+                f"The existing table {table_path!r} has a different context schema. "
+                "Reopen it with the original contexts or use a different table name."
+            )
 
         self.resources = MemoryResources(
             main_table=self.table, chunk_views=[], frame_views=[], search_targets=[]
@@ -57,12 +138,6 @@ class Memory:
 
         if self.columns_to_embed:
             self.setup_indexing()
-
-        self.Entry = make_dataclass(
-            "MemoryEntry",
-            [(col.id, Any) for col in self.context],
-            bases=(_dataclass_base,),
-        )
 
     def _get_embed_model(
         self, override_model: Optional[Union[str, pxt.Function]] = None
@@ -77,14 +152,18 @@ class Memory:
     def setup_indexing(self, columns_to_index: Optional[List[str]] = None) -> None:
         from .indexing import setup_column_indexing
 
-        columns_to_index = columns_to_index or list(self.columns_to_embed.keys())
+        if columns_to_index is None:
+            columns_to_index = list(self.columns_to_embed)
+        invalid = [
+            name for name in columns_to_index if name not in self.columns_to_embed
+        ]
+        if invalid:
+            raise ValueError(f"Contexts are unknown or have embed=False: {invalid}")
         if not columns_to_index:
             return
         for col_name in columns_to_index:
-            if col_name not in self.schema:
-                continue
-            col_type = self.schema[col_name]
-            col_settings = self.columns_to_embed.get(col_name)
+            col_settings = self.columns_to_embed[col_name]
+            col_type = col_settings._pxt_type
             setup_column_indexing(self, col_name, col_type, col_settings)
 
     def add(self, *rows: "Memory.Entry") -> None:
@@ -137,9 +216,7 @@ class Memory:
         if context_id is None:
             return out
         if context_id not in out:
-            raise KeyError(
-                f"No view for {context_id!r}. Available: {sorted(out)}"
-            )
+            raise KeyError(f"No view for {context_id!r}. Available: {sorted(out)}")
         return {context_id: out[context_id]}
 
     def search(
@@ -166,30 +243,53 @@ class Memory:
         write by hand. `idx` is always passed, because one column can carry two
         indexes and a bare `.similarity()` on it is ambiguous.
         """
+        if not isinstance(query, str):
+            raise TypeError("query must be a string")
+        if not isinstance(limit, int) or isinstance(limit, bool):
+            raise TypeError("limit must be a non-negative integer")
+        if limit < 0:
+            raise ValueError("limit must be a non-negative integer")
+        if min_score is not None and (
+            not isinstance(min_score, Real)
+            or isinstance(min_score, bool)
+            or not math.isfinite(min_score)
+        ):
+            raise ValueError("min_score must be a finite number")
+
         targets = self.resources.search_targets
         if on is not None:
             targets = [t for t in targets if t.context_id == on]
             if not targets:
-                available = sorted({t.context_id for t in self.resources.search_targets})
+                available = sorted(
+                    {t.context_id for t in self.resources.search_targets}
+                )
                 raise KeyError(f"No search target {on!r}. Available: {available}")
         if not targets:
             raise RuntimeError(
                 "This memory has no embedding index, so there is nothing to "
                 "search. Pass embed=True on at least one Context."
             )
+        if limit == 0:
+            return []
 
         rows: List[dict] = []
         for t in targets:
-            col = getattr(t.table, t.column)
+            col = t.table[t.column]
             sim = col.similarity(string=query, idx=t.index_name)
+            # Missing or failed embeddings have NULL scores. Exclude them before
+            # applying the per-target limit, so they cannot hide valid matches.
+            predicate = sim != None  # noqa: E711
+            if min_score is not None:
+                predicate = predicate & (sim >= min_score)
             results = (
-                t.table.order_by(sim, asc=False)
+                t.table.where(predicate)
+                .order_by(sim, asc=False)
                 .limit(limit)
                 .select(text=col, score=sim)
                 .collect()
             )
             for r in results:
-                if min_score is not None and r["score"] < min_score:
+                if r["score"] is None:
                     continue
                 rows.append(
                     {"context_id": t.context_id, "text": r["text"], "score": r["score"]}
