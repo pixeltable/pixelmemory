@@ -123,12 +123,12 @@ def test_openai_vision_uses_chat_completions(embed_model, namespace) -> None:
     columns = memory.table.get_metadata()["columns"]
     call = columns["img_response"]["computed_with"]
     assert call.startswith("chat_completions(")
-    assert "'type': 'image_url'" in call
+    assert "_image_messages(" in call
     assert "b64_encode(img, 'png')" in call
     assert "model_kwargs={'temperature': 0.2}" in call
     assert (
         columns["img_description"]["computed_with"]
-        == "img_response.choices[0].message.content.astype(String)"
+        == "img_response.choices[0].message.content.astype(String | None)"
     )
 
 
@@ -150,7 +150,7 @@ def test_anthropic_vision_passes_max_tokens(embed_model, namespace) -> None:
     call = memory.table.get_metadata()["columns"]["img_response"]["computed_with"]
     assert call.startswith("messages(")
     assert "max_tokens=1024" in call
-    assert "'data': b64_encode(img, 'png')" in call
+    assert "_image_messages(b64_encode(img, 'png')" in call
     assert "model_kwargs={'temperature': 0.2}" in call
 
 

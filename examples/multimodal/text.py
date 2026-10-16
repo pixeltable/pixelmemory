@@ -10,9 +10,7 @@ context = [
 ]
 
 memory = Memory(
-    context=context,
-    namespace="text_memory_example",
-    table_name="text_files"
+    context=context, namespace="text_memory_example", table_name="text_files"
 )
 
 text_data = (
@@ -22,9 +20,7 @@ text_data = (
     "You can build complex AI workflows with just a few lines of Python code."
 )
 entry = memory.Entry(
-    memory_id=str(uuid.uuid4()),
-    text_content=text_data,
-    inserted_at=str(datetime.now())
+    memory_id=str(uuid.uuid4()), text_content=text_data, inserted_at=str(datetime.now())
 )
 memory.add(entry)
 
@@ -37,5 +33,4 @@ print("Search results:")
 for res in results:
     print(f"Similarity: {res['score']:.4f}")
     print(f"Text: {res['text'][:100]}...")
-    print(f"ID: {res['memory_id']}")
     print("---")

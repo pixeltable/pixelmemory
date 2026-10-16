@@ -5,6 +5,32 @@ from typing import Dict, Any
 DEFAULT_MAX_TOKENS = 1024
 
 
+@pxt.udf
+def _image_messages(encoded: str, prompt: str, provider: str) -> list[dict[str, Any]]:
+    """Keep the whole request null when the optional source image is absent.
+
+    Pixeltable skips this function for a null `encoded` argument, then skips the
+    provider because its non-nullable `messages` argument is null too.
+    """
+    if provider == "openai":
+        image = {
+            "type": "image_url",
+            "image_url": {"url": f"data:image/png;base64,{encoded}"},
+        }
+    elif provider == "anthropic":
+        image = {
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": "image/png",
+                "data": encoded,
+            },
+        }
+    else:
+        raise ValueError(f"Unsupported vision provider: {provider}")
+    return [{"role": "user", "content": [{"type": "text", "text": prompt}, image]}]
+
+
 def get_vision_function(provider: str):
     if provider == "openai":
         try:
@@ -42,18 +68,7 @@ def prepare_vision_args(
 
     if provider == "openai":
         return {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": "data:image/png;base64," + encoded},
-                        },
-                    ],
-                }
-            ],
+            "messages": _image_messages(encoded, prompt, provider),
             "model": model,
             "model_kwargs": model_kwargs or None,
         }
@@ -61,22 +76,7 @@ def prepare_vision_args(
     elif provider == "anthropic":
         max_tokens = model_kwargs.pop("max_tokens", DEFAULT_MAX_TOKENS)
         return {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": "image/png",
-                                "data": encoded,
-                            },
-                        },
-                    ],
-                }
-            ],
+            "messages": _image_messages(encoded, prompt, provider),
             "model": model,
             "max_tokens": max_tokens,
             "model_kwargs": model_kwargs or None,
@@ -105,9 +105,10 @@ def create_vision_computed_column(
         raise ValueError(f"Unsupported vision provider: {provider}")
 
     # Both providers return Json, so the extracted field is Json too. An embedding
-    # index needs a String column, hence the cast.
+    # index needs a String column. Keep it nullable for skipped or empty responses.
     target_obj.add_computed_column(
-        **{description_col_name: description.astype(pxt.String)}, if_exists="ignore"
+        **{description_col_name: description.astype(pxt.String | None)},
+        if_exists="ignore",
     )
 
     return description_col_name

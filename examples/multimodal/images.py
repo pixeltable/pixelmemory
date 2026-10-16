@@ -10,24 +10,21 @@ context = [
 ]
 
 memory = Memory(
-    context=context,
-    namespace="image_memory_example",
-    table_name="image_files"
+    context=context, namespace="image_memory_example", table_name="image_files"
 )
 
 image_url = "https://raw.githubusercontent.com/pixeltable/pixeltable/release/docs/resources/images/000000000030.jpg"
 
 entry = memory.Entry(
-    memory_id=str(uuid.uuid4()),
-    image=image_url,
-    inserted_at=str(datetime.now())
+    memory_id=str(uuid.uuid4()), image=image_url, inserted_at=str(datetime.now())
 )
 memory.add(entry)
 
 query = "A person on a skateboard"
 # This wants the image itself alongside the caption, which search() does not
 # return, so query the table directly.
-sim = memory.image_description.similarity(string=query, idx="similarity")
+target = next(t for t in memory.search_targets if t.context_id == "image")
+sim = memory.image_description.similarity(string=query, idx=target.index_name)
 results = (
     memory.order_by(sim, asc=False)
     .limit(3)

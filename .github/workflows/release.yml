@@ -62,15 +62,33 @@ jobs:
           PIXELTABLE_HOME: ${{ runner.temp }}/pxt-release
         run: |
           uv venv /tmp/verify --python 3.12
-          VIRTUAL_ENV=/tmp/verify uv pip install dist/*.whl
-          VIRTUAL_ENV=/tmp/verify uv pip list | grep -E "pixelmemory|pixeltable"
-          /tmp/verify/bin/python -c "
+          uv pip install --python /tmp/verify/bin/python dist/*.whl
+          uv pip check --python /tmp/verify/bin/python
+          uv pip list --python /tmp/verify/bin/python | grep -E "pixelmemory|pixeltable"
+          /tmp/verify/bin/python -I -c "
+          from pathlib import Path
+          import sys
+          import pixelmemory
+          assert Path(pixelmemory.__file__).resolve().is_relative_to(Path(sys.prefix).resolve()), pixelmemory.__file__
           from pixelmemory import Memory
           from pixelmemory.context import Text
           m = Memory([Text(id='body', embed=False)], namespace='release_check')
           assert m.table.columns() == ['body'], m.table.columns()
-          print('built wheel installs and builds a memory')
+          m.add(m.Entry(body='persisted from the built wheel'))
+          m = Memory([Text(id='body', embed=False)], namespace='release_check')
+          assert m.table.collect()[0]['body'] == 'persisted from the built wheel'
+          print('built wheel installs, inserts and reopens a memory')
           "
+
+      - name: Test the installed wheel
+        env:
+          HF_HUB_DISABLE_PROGRESS_BARS: "1"
+        run: |
+          uv export --locked --only-group dev --no-emit-project --no-hashes -o /tmp/dev-requirements.txt
+          uv pip install --python /tmp/verify/bin/python -r /tmp/dev-requirements.txt
+          uv pip check --python /tmp/verify/bin/python
+          cd "$RUNNER_TEMP"
+          /tmp/verify/bin/python -I -m pytest "$GITHUB_WORKSPACE/tests" -c "$GITHUB_WORKSPACE/pyproject.toml" -v
 
       - uses: actions/upload-artifact@v4
         with:

@@ -30,16 +30,21 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "pixeltable>=0.7.6,<0.8",
-    "sentence-transformers>=4.1.0",
+    "pixeltable>=0.7.17,<0.8",
+    "sentence-transformers>=5.4",
     # DocumentSplitterParams defaults to separators="token_limit", which needs tiktoken.
     "tiktoken>=0.7",
 ]
 
+[project.optional-dependencies]
+openai = ["openai>=3.0"]
+anthropic = ["anthropic>=0.40"]
+sentence = ["spacy>=3.8"]
+
 [project.urls]
 homepage = "https://pixeltable.com/"
 repository = "https://github.com/pixeltable/pixelmemory"
-documentation = "https://docs.pixeltable.com/docs/libraries/pixelmemory"
+documentation = "https://github.com/pixeltable/pixelmemory#readme"
 
 [dependency-groups]
 dev = [
@@ -47,8 +52,12 @@ dev = [
     "ruff>=0.12.2,<0.15",
     # Provider SDKs are optional at runtime (pixelmemory raises a clear ImportError
     # if you use an Image context without them), but CI must cover the vision paths.
-    "openai>=1.0",
+    "openai>=3.0",
     "anthropic>=0.40",
+    "spacy>=3.8",
+    "fastapi>=0.120",
+    "langchain>=1.0",
+    "mcp>=2.3",
 ]
 
 [tool.ruff]

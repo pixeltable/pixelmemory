@@ -11,7 +11,16 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 
 The tag push runs `.github/workflows/release.yml`, which builds the sdist and
 wheel, checks the tag matches `pyproject.toml`, installs the built wheel into a
-clean environment and exercises it, then publishes to PyPI.
+clean environment and exercises it, then publishes to PyPI. The smoke test
+uses isolated Python import resolution (`-I`) and verifies that `pixelmemory`
+is loaded from that environment. It inserts a row and reopens the memory,
+then runs the full test suite against the installed wheel from outside the
+checkout. Provider calls in the suite are simulated; publishing does not
+establish live-provider compatibility.
+
+Before tagging, check that the test workflow passes for the intended commit
+and run the release workflow with `dry_run` checked. The tag is the publish
+action; building locally or opening a PR does not update PyPI.
 
 ## There is no PyPI token
 

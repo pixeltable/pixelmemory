@@ -1,4 +1,4 @@
-# uv pip install langchain-openai pixelmemory httpx
+# uv pip install langchain langchain-openai pixelmemory
 from pixelmemory import Memory
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage
@@ -15,12 +15,12 @@ mem = Memory(
     context=context,
     namespace="langchain_multimodal",
     table_name="image_store",
-    if_exists="replace_force"
+    if_exists="ignore",
 )
 
 # 2. Store an image URL in PixelMemory
 IMAGE_ID = "boardwalk_image"
-IMAGE_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
+IMAGE_URL = "https://raw.githubusercontent.com/pixeltable/pixeltable/release/docs/resources/images/000000000030.jpg"
 
 entry = mem.Entry(image_id=IMAGE_ID, image_url=IMAGE_URL)
 mem.add(entry)
@@ -37,7 +37,7 @@ llm = init_chat_model("gpt-4o-mini", model_provider="openai")
 
 message = HumanMessage(
     content=[
-        {"type": "text", "text": "Describe the weather in this image:"},
+        {"type": "text", "text": "Describe the scene in this image:"},
         {"type": "image_url", "image_url": {"url": retrieved_url}},
     ]
 )

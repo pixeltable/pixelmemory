@@ -13,10 +13,13 @@ import time and why no test module imports pixelmemory at the top level.
 """
 
 import os
+from pathlib import Path
 import tempfile
 
 _CATALOG = tempfile.mkdtemp(prefix="pixelmemory-tests-")
 os.environ["PIXELTABLE_HOME"] = _CATALOG
+os.environ["PIXELTABLE_PGDATA"] = str(Path(_CATALOG) / "pgdata")
+os.environ.pop("PIXELTABLE_DB_CONNECT_STR", None)
 os.environ.pop("OPENAI_API_KEY", None)
 os.environ.pop("ANTHROPIC_API_KEY", None)
 
@@ -26,6 +29,22 @@ import pytest  # noqa: E402
 # downloaded there; the ranking tests in test_search.py do insert rows and will
 # fetch these weights once. Still no API key either way.
 EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def test_catalog_server():
+    """Stop the throwaway server after the suite, including after test failures."""
+    import pixeltable_pgserver
+
+    # Register the server before Pixeltable opens it. Its normal persistent
+    # cleanup mode leaves a PostgreSQL process behind for every test run.
+    server = pixeltable_pgserver.get_server(
+        Path(_CATALOG) / "pgdata", cleanup_mode="stop"
+    )
+    try:
+        yield
+    finally:
+        server.cleanup()
 
 
 @pytest.fixture(scope="session")
